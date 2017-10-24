@@ -59,6 +59,14 @@ module.exports = {
     },
 
     'jobs': {
+        'should fork child process to run a job': function(t) {
+            var spy = t.stubOnce(child_process, 'fork', function(){ return {} });
+            runner.run('ping', function(err, ret) {
+                t.equal(spy.callCount, 1);
+                t.done();
+            })
+        },
+
         'should run a job': function(t) {
             runner.run('ping', { x: process.pid }, function(err, ret) {
                 t.ifError(err);
@@ -131,13 +139,52 @@ module.exports = {
         },
 
         'should return error if unable to fork worker process': function(t) {
-            //t.stubOnce(console, 'log');
+            var stub = t.stub(console, 'log');
             t.stubOnce(child_process, 'fork', function() { throw new Error("fork error " + process.pid) });
             runner.run('ping', function(err, ret) {
+                stub.restore();
                 t.ok(err);
                 t.equal(err.message, 'fork error ' + process.pid);
                 t.done();
             })
+        },
+
+        'should return error if script throws when loading': function(t) {
+            runner.run('/nonesuch', 123, function(err, ret) {
+                t.ok(err);
+                t.equal(err.code, 'MODULE_NOT_FOUND');
+                t.done();
+            })
+        },
+    },
+
+    'helpers': {
+        'createWorkerProcess should fork and return annotated child process': function(t) {
+            var worker = {};
+            var spy = t.stubOnce(child_process, 'fork', function(){ return worker });
+            var worker2 = qworker._helpers.createWorkerProcess('scriptName');
+            t.equal(spy.callCount, 1);
+            t.equal(worker2._script, 'scriptName');
+            t.equal(worker2._useCount, 0);
+            t.equal(worker2, worker);
+            t.done();
+        },
+
+        'endWorkerProcess should cause worker process to exit': function(t) {
+            var worker = qworker._helpers.createWorkerProcess('ping');
+            t.equal(worker.exitCode, null);
+            var workerPid = worker.pid;
+            qworker._helpers.endWorkerProcess(worker, function(err, ret) {
+                t.ok(worker.exitCode == 0 || worker.killed);
+                t.throws(function() { process.kill(workerPid, 0) });
+                t.done();
+            })
+        },
+
+        'sendTo should return false on error': function(t) {
+            var ret = qworker._helpers.sendTo({}, { qwType: 'test' });
+            t.strictEqual(ret, false);
+            t.done();
         },
     },
 }
