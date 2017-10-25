@@ -5,8 +5,7 @@ qworker
 [![Coverage Status](https://codecov.io/github/andrasq/node-qworker/coverage.svg?branch=master)](https://codecov.io/github/andrasq/node-qworker?branch=master)
 
 
-Worker functions to run nodejs scripts.  Each script is run in a separate child
-process.
+Worker processes to run nodejs scripts.  Each script is run in a separate child process.
 
     var qworker = require('qworker');
 
@@ -44,7 +43,7 @@ Options:
   The default is ".", the current working directory of the node process.
 
 
-### runner.run( script, [payload], callback )
+### runner.run( script, [payload], callback( err, ret ) )
 
 Run the named script.  Each script is run in a separate child process.  Fork errors
 are returned via the callback.  If `script` or `callback` are missing, an `Error` is
