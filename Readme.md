@@ -67,12 +67,11 @@ new options.  Options are as for `qworker()`.  Currently, both the parent and th
 runner share worker queues.
 
 
-## Notes
+## TODO
 
-- "admin" script that executes meta-commands (eg purge cache, reload config, etc)
-- each script launches in a child_process worker process
-- worker runs the script file path, arguments passed in process.argv (as from cmdline, useful for testing)
-- once a worker is running, it can accept more jobs
-- workers time out in 2 seconds, then exit
-
-- maxWorkerReuse = 1
+Future work:
+- "qworker" pseudo-script that executes meta-commands (eg purge cache, reload config, etc)
+- make worker processes reusable (currently disabled)
+- make it possible for a worker to run multiple types of scripts
+- make stopTimeout, exitTimeout configurable
+- cap the total number of worker processes
