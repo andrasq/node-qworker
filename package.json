@@ -1,0 +1,30 @@
+{
+  "name": "qworker",
+  "version": "0.1.0",
+  "main": "lib/qworker.js",
+  "description": "quick work script runner",
+  "license": "Apache-2.0",
+  "keywords": ["worker", "queue", "script", "runner"],
+  "engines": {
+    "node": ">=0.10"
+  },
+
+  "author": "andrasq",
+  "repository": "git://github.com/andrasq/node-qworker",
+
+  "dependencies": {
+    "qcache": "0.5.0",
+    "qhash": "1.1.1",
+    "qinvoke": "0.11.3",
+    "quickq": "0.9.4"
+  },
+  "devDependencies": {
+    "qnit": "0.18.0"
+  },
+
+  "scripts": {
+    "test": "qnit test/test*",
+    "coverage": "nyc --reporter text --reporter lcov npm test",
+    "clean": "rm -rf .nyc_output coverage"
+  }
+}
