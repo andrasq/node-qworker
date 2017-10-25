@@ -61,7 +61,7 @@ module.exports = {
     'jobs': {
         'should fork child process to run a job': function(t) {
             var spy = t.stubOnce(child_process, 'fork', function(){ return {} });
-            runner.run('ping', function(err, ret) {
+            runner.run('fakeping', function(err, ret) {
                 t.equal(spy.callCount, 1);
                 t.done();
             })
@@ -141,7 +141,7 @@ module.exports = {
         'should return error if unable to fork worker process': function(t) {
             var stub = t.stub(console, 'log');
             t.stubOnce(child_process, 'fork', function() { throw new Error("fork error " + process.pid) });
-            runner.run('ping', function(err, ret) {
+            runner.run('otherping', function(err, ret) {
                 stub.restore();
                 t.ok(err);
                 t.equal(err.message, 'fork error ' + process.pid);
@@ -170,11 +170,11 @@ module.exports = {
             t.done();
         },
 
-        'endWorkerProcess should cause worker process to exit': function(t) {
-            var worker = qworker._helpers.createWorkerProcess('ping');
+        'killWorkerProcess should cause worker process to exit': function(t) {
+            var worker = qworker._helpers.createWorkerProcess('process_to_kill');
             t.equal(worker.exitCode, null);
             var workerPid = worker.pid;
-            qworker._helpers.endWorkerProcess(worker, function(err, ret) {
+            qworker._helpers.killWorkerProcess(worker, function(err, ret) {
                 t.ok(worker.exitCode == 0 || worker.killed);
                 t.throws(function() { process.kill(workerPid, 0) });
                 t.done();
