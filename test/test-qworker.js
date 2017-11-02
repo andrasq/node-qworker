@@ -184,8 +184,22 @@ module.exports = {
             t.equal(worker.exitCode, null);
             var workerPid = worker.pid;
             qworker._helpers.killWorkerProcess(worker, function(err, ret) {
-                t.ok(worker.exitCode == 0 || worker.killed);
-                t.throws(function() { process.kill(workerPid, 0) });
+                t.ok(worker.exitCode == 0 || worker.killed || worker.signalCode);
+                t.equal(worker.signalCode, 'SIGKILL');
+                try { process.kill(workerPid); t.fail() }
+                catch (err) { t.contains(err.message, 'ESRCH') }
+                t.done();
+            })
+        },
+
+        'endWorkerProcess should end a killed worker': function(t) {
+            var worker = qworker._helpers.createWorkerProcess('sleep');
+            worker._useCount = 999999;
+            process.kill(worker.pid, 'SIGHUP');
+            qworker._helpers.endWorkerProcess(worker, function(err, proc) {
+                t.equal(worker.signalCode, 'SIGHUP');
+                try { process.kill(proc.pid); t.fail() }
+                catch (err) { t.contains(err.message, 'ESRCH') }
                 t.done();
             })
         },
