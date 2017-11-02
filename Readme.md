@@ -46,8 +46,9 @@ Options:
 ### runner.run( script, [payload], callback( err, ret ) )
 
 Run the named script.  Each script is run in a separate child process.  Fork errors
-are returned via the callback.  If `script` or `callback` are missing, an `Error` is
-thrown.
+are returned via the callback.  If `script` or `callback` are not provided, an `Error`
+is thrown.  If the script is not found or throws while loading, an error is returned
+to the callback.
 
 The script may be passed an optional argument (the `payload`).  The `callback` will be
 called by the runner to deliver results or errors from the script.
@@ -70,7 +71,6 @@ runner share worker queues.
 
 Future work:
 - "qworker" pseudo-script that executes meta-commands (eg purge cache, reload config, etc)
-- make worker processes reusable (currently disabled)
 - make it possible for a worker to run multiple types of scripts
 - make stopTimeout, exitTimeout configurable
 - cap the total number of worker processes
