@@ -38,10 +38,11 @@ Options:
 - `maxWorkers` - how many workers may run at the same time.  Default 2.
 - `timeout` - how long a job may take to finish, in milliseconds.
   The default is `0`, unlimited.
-- `scriptDir` - where to search for scripts with relative pathnames,
-  relative to the process working directory (`process.cwd()`).
+- `scriptDir` - where to search for scripts with relative pathnames.
   The default is ".", the current working directory of the node process.
-
+  Anchored script names (those starting with `/`) are loaded by explicit pathname.
+- `maxUseCount` - how many scripts a worker process may run before being retired.
+  Default 1, use a new process for each script.
 
 ### runner.run( script, [payload], callback( err, ret ) )
 
@@ -75,3 +76,4 @@ Future work:
 - make stopTimeout, exitTimeout configurable
 - cap the total number of worker processes
 - log a comment if worker is killed (ie, not asked to stop)
+- emit `fork`, `exit`, `error` and `trace` events

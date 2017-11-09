@@ -105,7 +105,6 @@ module.exports = {
         },
 
         'should run a job by relative filepath': function(t) {
-// FIXME: a new runner reuses the worker, but does not use the right quickq!! (and does not call the callback)
             runner.run('../scripts_alt/ping', { x2: process.pid }, function(err, ret) {
                 t.ifError(err);
                 t.deepEqual(ret, { x2: process.pid, alt: true });
