@@ -74,3 +74,4 @@ Future work:
 - make it possible for a worker to run multiple types of scripts
 - make stopTimeout, exitTimeout configurable
 - cap the total number of worker processes
+- log a comment if worker is killed (ie, not asked to stop)

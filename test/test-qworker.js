@@ -6,6 +6,8 @@
 'use strict';
 
 var child_process = require('child_process');
+var util = require('util');
+var events = require('events');
 
 var qworker = require('../');
 var runner = qworker({
@@ -60,11 +62,30 @@ module.exports = {
 
     'jobs': {
         'should fork child process to run a job': function(t) {
-            var spy = t.stubOnce(child_process, 'fork', function(){ return {} });
+            var spy = t.stubOnce(child_process, 'fork', function(){ return new MockWorker() });
             runner.run('fakeping', function(err, ret) {
-                t.equal(spy.callCount, 1);
+                t.ifError(err);
+                t.equal(spy.callCount, 1, "expected to fork once");
                 t.done();
             })
+        },
+
+        'should return from job only once': function(t) {
+            var worker = new MockWorker();
+            var spy = t.stubOnce(runner, 'createWorkerProcess', function(){ return worker });
+            var callCount = 0;
+            runner.run('fakescript', function(err, ret) {
+                callCount += 1;
+                t.ok(err && err.message === 'deliberate error');
+                t.equal(callCount, 1);
+                t.done();
+            })
+            setTimeout(function() {
+                worker.emit('error', new Error("deliberate error"));
+                worker.emit('error', new Error("other error"));
+                worker.emit('exit', 0);
+                worker.emit('message', { qwType: 'done' });
+            }, 5);
         },
 
         'should run a job': function(t) {
@@ -169,9 +190,9 @@ module.exports = {
 
     'helpers': {
         'createWorkerProcess should fork and return annotated child process': function(t) {
-            var worker = {};
+            var worker = new MockWorker();
             var spy = t.stubOnce(child_process, 'fork', function(){ return worker });
-            var worker2 = qworker._helpers.createWorkerProcess('scriptName');
+            var worker2 = runner.createWorkerProcess('scriptName');
             t.equal(spy.callCount, 1);
             t.equal(worker2._script, 'scriptName');
             t.equal(worker2._useCount, 0);
@@ -180,10 +201,10 @@ module.exports = {
         },
 
         'killWorkerProcess should cause worker process to exit': function(t) {
-            var worker = qworker._helpers.createWorkerProcess('process_to_kill');
+            var worker = runner.createWorkerProcess('process_to_kill');
             t.equal(worker.exitCode, null);
             var workerPid = worker.pid;
-            qworker._helpers.killWorkerProcess(worker, function(err, ret) {
+            runner.killWorkerProcess(worker, function(err, ret) {
                 t.ok(worker.exitCode == 0 || worker.killed || worker.signalCode);
                 t.equal(worker.signalCode, 'SIGKILL');
                 try { process.kill(workerPid); t.fail() }
@@ -193,10 +214,10 @@ module.exports = {
         },
 
         'endWorkerProcess should end a killed worker': function(t) {
-            var worker = qworker._helpers.createWorkerProcess('sleep');
+            var worker = runner.createWorkerProcess('sleep');
             worker._useCount = 999999;
             process.kill(worker.pid, 'SIGHUP');
-            qworker._helpers.endWorkerProcess(worker, function(err, proc) {
+            runner.endWorkerProcess(worker, function(err, proc) {
                 t.equal(worker.signalCode, 'SIGHUP');
                 try { process.kill(proc.pid); t.fail() }
                 catch (err) { t.contains(err.message, 'ESRCH') }
@@ -205,9 +226,24 @@ module.exports = {
         },
 
         'sendTo should return false on error': function(t) {
-            var ret = qworker._helpers.sendTo({}, { qwType: 'test' });
+            var ret = runner.sendTo({}, { qwType: 'test' });
             t.strictEqual(ret, false);
             t.done();
         },
     },
 }
+
+function MockWorker( ) {
+    events.EventEmitter.call(this);
+
+    this._qwId = -1;
+    this._useCount = 0;
+    this._script = 'no script';
+
+    // send a fake 'done' event in a few
+    var self = this;
+    setTimeout(function() {
+        self.emit('message', { pid: process.pid, qwType: 'done' });
+    }, 10);
+}
+util.inherits(MockWorker, events.EventEmitter);
