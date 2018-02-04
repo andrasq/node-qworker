@@ -12,6 +12,8 @@ var events = require('events');
 var qworker = require('../');
 var runner = qworker({
     scriptDir: __dirname + '/scripts',
+    maxUseCount: 2,
+    workerExitTimeout: 200,
 });
 
 module.exports = {
@@ -199,6 +201,21 @@ module.exports = {
             t.done();
         },
 
+        'createWorkerProcess should reuse a recycled process': function(t) {
+            var worker = new MockWorker();
+            var spy = t.stub(child_process, 'fork', function(){ return worker });
+            var worker1 = runner.createWorkerProcess('scriptName');
+            t.stubOnce(runner, 'processExists', function(){ return true });
+            runner.endWorkerProcess(worker1, function(err, endedWorker) {
+                t.equal(runner._workerPool.getLength('scriptName'), 1);
+                var worker2 = runner.createWorkerProcess('scriptName');
+                spy.restore();
+                t.equal(worker2, worker1);
+                t.equal(spy.callCount, 1);
+                t.done();
+            })
+        },
+
         'killWorkerProcess should cause worker process to exit': function(t) {
             var worker = runner.createWorkerProcess('process_to_kill');
             t.equal(worker.exitCode, null);
@@ -217,9 +234,22 @@ module.exports = {
             worker._useCount = 999999;
             process.kill(worker.pid, 'SIGHUP');
             runner.endWorkerProcess(worker, function(err, proc) {
+                t.strictEqual(worker._kstopped, true);
                 t.equal(worker.signalCode, 'SIGHUP');
                 try { process.kill(proc.pid); t.fail() }
                 catch (err) { t.contains(err.message, 'ESRCH') }
+                t.done();
+            })
+        },
+
+        'endWorkerProcess should not end the process twice': function(t) {
+            var worker = new MockWorker();
+            worker._useCount = 123;
+            worker._kstopped = 'yes';
+            runner.endWorkerProcess(worker, function(err, stoppedWorker) {
+                t.strictEqual(stoppedWorker, worker);
+                t.strictEqual(stoppedWorker._useCount, 123);
+                t.strictEqual(stoppedWorker._kstopped, 'yes');
                 t.done();
             })
         },
