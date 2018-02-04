@@ -68,6 +68,10 @@ new options.  Options are as for `qworker()`.  Currently, both the parent and th
 runner share worker queues.
 
 
+## ChangeLog
+
+- 0.3.0 - kill scripts that exceed their timeout
+
 ## TODO
 
 Future work:
@@ -77,3 +81,4 @@ Future work:
 - cap the total number of worker processes
 - log a comment if worker is killed (ie, not asked to stop)
 - emit `fork`, `exit`, `error` and `trace` events
+- option `require: []` to jobs to pre-load dependencies eg coffee-script/register
