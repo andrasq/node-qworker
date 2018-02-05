@@ -98,6 +98,29 @@ module.exports = {
             }, 5);
         },
 
+        'should wait for the done message for callback': function(t) {
+            var worker = new MockWorker(100);
+            var spy = t.stubOnce(child_process, 'fork', function(){ return worker });
+
+            var messages = [];
+            worker.on('message', function(m) {
+                messages.push(m && m.qwType);
+            })
+            runner.run('some-other-job', function(err, ret) {
+                t.deepEqual(messages, ['ready', 'ready', 'some message', 'some other message', 'done']);
+                t.done();
+            })
+            setTimeout(function() {
+                // the mock 'ready' happened before createWorkerProcess listened for it, re-send
+                worker.emit('message', { qwType: 'ready' });
+                worker.emit('message', { qwType: 'some message' });
+                worker.emit('message', { qwType: 'some other message' });
+                // 'done' will call the run() callback, which checks the messages seen so far
+                worker.emit('message', { qwType: 'done' });
+                worker.emit('message', { qwType: 'post-done messages not seen' });
+            }, 15);
+        },
+
         'should run a job': function(t) {
             runner.run('ping', { x: process.pid }, function(err, ret) {
                 t.ifError(err);
@@ -237,6 +260,21 @@ module.exports = {
             })
         },
 
+        'endWorkerProcess should tell the worker to stop': function(t) {
+            var worker = runner.createWorkerProcess('sleep', function(err) {
+                worker._useCount = 999999;
+                runner.endWorkerProcess(worker, function(err, proc) {
+                    // the worker process either exited voluntarily or was killed.
+                    // Since it normally waits forever for jobs to run, it has to
+                    // either be killed or be told to 'stop'.
+                    t.ok(!runner.processExists(worker));
+                    t.strictEqual(worker.exitCode, 0);
+                    t.strictEqual(worker.killed, false);
+                    t.done();
+                })
+            })
+        },
+
         'endWorkerProcess should end a killed worker': function(t) {
             var worker = runner.createWorkerProcess('sleep');
             worker._useCount = 999999;
@@ -335,7 +373,7 @@ module.exports = {
     },
 }
 
-function MockWorker( ) {
+function MockWorker( whenDone ) {
     events.EventEmitter.call(this);
 
     this._qwId = -1;
@@ -349,6 +387,6 @@ function MockWorker( ) {
     });
     setTimeout(function() {
         self.emit('message', { pid: process.pid, qwType: 'done' });
-    }, 10);
+    }, whenDone || 10);
 }
 util.inherits(MockWorker, events.EventEmitter);
