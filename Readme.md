@@ -70,7 +70,7 @@ runner share worker queues.
 
 ## ChangeLog
 
-- 0.3.0 - kill scripts that exceed their timeout
+- 0.3.0 - kill scripts that exceed their timeout, fix worker reuse
 
 ## TODO
 

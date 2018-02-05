@@ -36,11 +36,18 @@ module.exports = {
         t.done();
     },
 
+    'should anchor scriptDir': function(t) {
+        var runner = qworker({ scriptDir: 'myDir' });
+        t.equal(runner.scriptDir, process.cwd() + '/myDir');
+        t.done();
+    },
+
     'should create a new job runner': function(t) {
         var runner1 = new qworker();
         var runner2 = new qworker();
         t.ok(runner1);
         t.equal(typeof runner1.run, 'function');
+        t.equal(typeof runner2.run, 'function');
         t.ok(runner1 != runner2);
         t.done();
     },
@@ -74,7 +81,7 @@ module.exports = {
 
         'should return from job only once': function(t) {
             var worker = new MockWorker();
-            var spy = t.stubOnce(runner, 'createWorkerProcess', function(){ return worker });
+            var spy = t.stubOnce(runner, 'createWorkerProcess', function(script, launch){ process.nextTick(launch); return worker });
             var callCount = 0;
             runner.run('fakescript', function(err, ret) {
                 callCount += 1;
@@ -85,6 +92,7 @@ module.exports = {
             setTimeout(function() {
                 worker.emit('error', new Error("deliberate error"));
                 worker.emit('error', new Error("other error"));
+                worker.emit('error', null);
                 worker.emit('exit', 0);
                 worker.emit('message', { qwType: 'done' });
             }, 5);
@@ -254,6 +262,71 @@ module.exports = {
             })
         },
 
+        'endWorkerProcess should retire a process that reached maxUseCount': function(t) {
+            runner.run('pid', {}, function(err, pid1) {
+                t.ifError(err);
+                t.ok(pid1 > 0);
+
+            runner.run('pid', function(err, pid2) {
+                t.ifError(err);
+                t.ok(pid2 > 0);
+
+            runner.run('pid', function(err, pid3) {
+                t.ifError(err);
+                t.ok(pid3 > 0);
+                t.ok(pid3 !== pid1);
+
+            runner.run('pid', function(err, pid4) {
+                t.ifError(err);
+                t.ok(pid4 > 0);
+                t.ok(pid4 != pid2);
+
+            runner.run('pid', function(err, pid5) {
+                t.ifError(err);
+                t.ok(pid5 > 0);
+                t.ok(pid5 != pid3);
+
+                t.done();
+
+            }) }) }) }) })
+        },
+
+        'endWorkerProcess should ignore processes that do not exist': function(t) {
+            var worker = new MockWorker();
+            worker.pid = 'nonesuch';  // invalid id that can not be signaled
+            worker._useCount = 999999;
+            runner.endWorkerProcess(worker, function(err, stoppedWorker) {
+                t.ok(!err);
+                t.equal(stoppedWorker, worker);
+                t.done();
+            })
+        },
+
+        'endWorkerProcess should kill the process if it takes too long to exit': function(t) {
+            var blockingScript = __dirname + '/scripts/block';
+            var worker = runner.createWorkerProcess(blockingScript);
+            // arrange to use this worker process
+            t.stubOnce(runner, 'processExists', function(){ return true });
+            runner.endWorkerProcess(worker, function(err) {
+                t.ifError(err);
+                var startTime = Date.now();
+                var spy = t.spyOnce(runner, 'killWorkerProcess');
+                runner.run(blockingScript, { ms: 5000 }, function(err, worker2) {
+                    var doneTime = Date.now();
+                    t.ok(err);
+                    t.contains(err.message, 'worker exited');
+                    t.ok(doneTime - startTime < 1000);
+                    t.done();
+                })
+                setTimeout(function() {
+                    runner.endWorkerProcess(worker, function(err, worker3) {
+                        t.ok(worker.killed);
+                        t.equal(worker.signalCode, 'SIGKILL');
+                    })
+                }, 100)
+            })
+        },
+
         'sendTo should return false on error': function(t) {
             var ret = runner.sendTo({}, { qwType: 'test' });
             t.strictEqual(ret, false);
@@ -271,6 +344,9 @@ function MockWorker( ) {
 
     // send a fake 'done' event in a few
     var self = this;
+    process.nextTick(function(){
+        self.emit('message', { pid: process.pid, qwType: 'ready' });
+    });
     setTimeout(function() {
         self.emit('message', { pid: process.pid, qwType: 'done' });
     }, 10);
