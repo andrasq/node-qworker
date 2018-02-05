@@ -70,6 +70,7 @@ runner share worker queues.
 
 ## ChangeLog
 
+- 0.3.1 - fix processExists for non-numeric pids on node-v0.10
 - 0.3.0 - kill scripts that exceed their timeout, fix worker reuse
 
 ## TODO

@@ -265,8 +265,8 @@ module.exports = {
                 worker._useCount = 999999;
                 runner.endWorkerProcess(worker, function(err, proc) {
                     // the worker process either exited voluntarily or was killed.
-                    // Since it normally waits forever for jobs to run, it has to
-                    // either be killed or be told to 'stop'.
+                    // Since the worker normally waits forever for more jobs to run,
+                    // it has to either be killed or be told to 'stop'.
                     t.ok(!runner.processExists(worker));
                     t.strictEqual(worker.exitCode, 0);
                     t.strictEqual(worker.killed, false);
