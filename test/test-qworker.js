@@ -247,6 +247,37 @@ module.exports = {
             })
         },
 
+        'createWorkerProcess should create a worker at the configured priority': function(t) {
+            var runner = qworker({ niceLevel: 12, scriptDir: __dirname + '/scripts' });
+            var procs;
+            var worker = runner.run('sleep', { ms: 100 }, function(err, ret) {
+                t.ifError(err);
+                var lines = procs.replace(/[ ]+/g, ' ').split('\n');
+                var regex = new RegExp("^" + ret.pid + "\\s* 12$", "m");
+                t.ok(regex.test(procs));
+                t.done();
+            })
+            setTimeout(function() {
+                // default fields: F S UID PID PPID C PRI NI ... -- flags, state, uid, pid, ppid, cpu%, kernPrio, nice
+                // use -o to format only needed columns: %p pid, %n nice
+                child_process.exec("ps -o '%p %n'", function(err, stdout) {
+                    procs = stdout;
+                })
+            }, 50);
+        },
+
+        'createWorkerProcess should log renice error': function(t) {
+            var runner = qworker({ niceLevel: 'NaN', scriptDir: __dirname + '/scripts' });
+            var spy = t.stub(process.stdout, 'write');
+            var worker = runner.run('sleep', { ms: 10 }, function(err, ret) {
+                t.ifError(err);
+                spy.restore();
+                t.ok(spy.called);
+                t.contains(spy.args[0][0], 'failed to renice process ' + ret.pid);
+                t.done();
+            })
+        },
+
         'killWorkerProcess should cause worker process to exit': function(t) {
             var worker = runner.createWorkerProcess('process_to_kill', {}, noop);
             t.equal(worker.exitCode, null);
