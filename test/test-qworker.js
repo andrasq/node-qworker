@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2017 Andras Radics
+ * Copyright (C) 2017-2018 Andras Radics
  * Licensed under the Apache License, Version 2.0
  */
 
@@ -129,6 +129,18 @@ module.exports = {
             });
         },
 
+        'run should invoke runWithOptions': function(t) {
+            var spy = t.spyOnce(runner, 'runWithOptions');
+            runner.run('ping', { x: process.pid }, function(err, ret) {
+                t.ifError(err);
+                t.ok(spy.called);
+                t.deepEqual(spy.args[0][0], 'ping');
+                t.deepEqual(spy.args[0][1], {});
+                t.deepEqual(spy.args[0][2], { x: process.pid });
+                t.done();
+            });
+        },
+
         'should run a job by explicit filepath': function(t) {
             runner.run(__dirname + '/scripts_alt/ping', { x: process.pid }, function(err, ret) {
                 t.ifError(err);
@@ -167,6 +179,26 @@ module.exports = {
             runner.run('error', function(err, ret) {
                 t.ok(err);
                 t.equal(err.message, 'script error');
+                t.done();
+            })
+        },
+
+        'runWithOptions should use job timeout': function(t) {
+            var runner = qworker({ scriptDir: __dirname + '/scripts' });
+            var spy = t.spy(runner, 'createWorkerProcess');
+            runner.runWithOptions('ping', { timeout: 1234 }, 'pong', function(err, ret) {
+                t.ok(spy.called);
+                t.equal(spy.args[0][1].timeout, 1234);
+                t.done();
+            })
+        },
+
+        'runWithOptions should set nice level': function(t) {
+            var runner = qworker({ scriptDir: __dirname + '/scripts' });
+            var spy = t.spy(runner, 'createWorkerProcess');
+            runner.runWithOptions('ping', { niceLevel: 1234 }, 'pong', function(err, ret) {
+                t.ok(spy.called);
+                t.equal(spy.args[0][1].niceLevel, 1234);
                 t.done();
             })
         },
@@ -238,9 +270,9 @@ module.exports = {
             var worker1 = runner.createWorkerProcess('scriptName', {}, noop);
             t.stubOnce(runner, 'processExists', function(){ return true });
             runner.endWorkerProcess(worker1, function(err, endedWorker) {
+                spy.restore();
                 t.equal(runner._workerPool.getLength('scriptName'), 1);
                 var worker2 = runner.createWorkerProcess('scriptName', {}, noop);
-                spy.restore();
                 t.equal(worker2, worker1);
                 t.equal(spy.callCount, 1);
                 t.done();
@@ -250,28 +282,20 @@ module.exports = {
         'createWorkerProcess should create a worker at the configured priority': function(t) {
             var runner = qworker({ niceLevel: 12, scriptDir: __dirname + '/scripts' });
             var procs;
-            var worker = runner.run('sleep', { ms: 100 }, function(err, ret) {
+            var worker = runner.run('ps-self', function(err, ret) {
                 t.ifError(err);
-                var lines = procs.replace(/[ ]+/g, ' ').split('\n');
-                var regex = new RegExp("^" + ret.pid + "\\s* 12$", "m");
-                t.ok(regex.test(procs));
+                var regex = new RegExp("^\\s*" + ret.pid + "\\s* 12$", "m");
+                t.ok(regex.test(ret.stdout));
                 t.done();
             })
-            setTimeout(function() {
-                // default fields: F S UID PID PPID C PRI NI ... -- flags, state, uid, pid, ppid, cpu%, kernPrio, nice
-                // use -o to format only needed columns: %p pid, %n nice
-                child_process.exec("ps -o '%p %n'", function(err, stdout) {
-                    procs = stdout;
-                })
-            }, 50);
         },
 
-        'createWorkerProcess should log renice error': function(t) {
+        'createWorkerProcess should return renice error': function(t) {
             var runner = qworker({ niceLevel: 'NaN', scriptDir: __dirname + '/scripts' });
             var spy = t.stub(process.stdout, 'write');
             var worker = runner.run('sleep', { ms: 10 }, function(err, ret) {
-                t.ifError(err);
                 spy.restore();
+                t.ifError(err);
                 t.ok(spy.called);
                 t.contains(spy.args[0][0], 'failed to renice process ' + ret.pid);
                 t.done();
