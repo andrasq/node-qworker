@@ -81,7 +81,7 @@ module.exports = {
 
         'should return from job only once': function(t) {
             var worker = new MockWorker();
-            var spy = t.stubOnce(runner, 'createWorkerProcess', function(script, launch){ process.nextTick(launch); return worker });
+            var spy = t.stubOnce(runner, 'createWorkerProcess', function(script, job, launch){ process.nextTick(launch); return worker });
             var callCount = 0;
             runner.run('fakescript', function(err, ret) {
                 callCount += 1;
@@ -224,7 +224,7 @@ module.exports = {
         'createWorkerProcess should fork and return annotated child process': function(t) {
             var worker = new MockWorker();
             var spy = t.stubOnce(child_process, 'fork', function(){ return worker });
-            var worker2 = runner.createWorkerProcess('scriptName');
+            var worker2 = runner.createWorkerProcess('scriptName', {}, noop);
             t.equal(spy.callCount, 1);
             t.equal(worker2._script, 'scriptName');
             t.equal(worker2._useCount, 0);
@@ -235,11 +235,11 @@ module.exports = {
         'createWorkerProcess should reuse a recycled process': function(t) {
             var worker = new MockWorker();
             var spy = t.stub(child_process, 'fork', function(){ return worker });
-            var worker1 = runner.createWorkerProcess('scriptName');
+            var worker1 = runner.createWorkerProcess('scriptName', {}, noop);
             t.stubOnce(runner, 'processExists', function(){ return true });
             runner.endWorkerProcess(worker1, function(err, endedWorker) {
                 t.equal(runner._workerPool.getLength('scriptName'), 1);
-                var worker2 = runner.createWorkerProcess('scriptName');
+                var worker2 = runner.createWorkerProcess('scriptName', {}, noop);
                 spy.restore();
                 t.equal(worker2, worker1);
                 t.equal(spy.callCount, 1);
@@ -248,7 +248,7 @@ module.exports = {
         },
 
         'killWorkerProcess should cause worker process to exit': function(t) {
-            var worker = runner.createWorkerProcess('process_to_kill');
+            var worker = runner.createWorkerProcess('process_to_kill', {}, noop);
             t.equal(worker.exitCode, null);
             var workerPid = worker.pid;
             runner.killWorkerProcess(worker, function(err, ret) {
@@ -261,7 +261,7 @@ module.exports = {
         },
 
         'endWorkerProcess should tell the worker to stop': function(t) {
-            var worker = runner.createWorkerProcess('sleep', function(err) {
+            var worker = runner.createWorkerProcess('sleep', {}, function(err) {
                 worker._useCount = 999999;
                 runner.endWorkerProcess(worker, function(err, proc) {
                     // the worker process either exited voluntarily or was killed.
@@ -276,7 +276,7 @@ module.exports = {
         },
 
         'endWorkerProcess should end a killed worker': function(t) {
-            var worker = runner.createWorkerProcess('sleep');
+            var worker = runner.createWorkerProcess('sleep', {}, noop);
             worker._useCount = 999999;
             process.kill(worker.pid, 'SIGHUP');
             runner.endWorkerProcess(worker, function(err, proc) {
@@ -342,7 +342,7 @@ module.exports = {
 
         'endWorkerProcess should kill the process if it takes too long to exit': function(t) {
             var blockingScript = __dirname + '/scripts/block';
-            var worker = runner.createWorkerProcess(blockingScript);
+            var worker = runner.createWorkerProcess(blockingScript, {}, noop);
             // arrange to use this worker process
             t.stubOnce(runner, 'processExists', function(){ return true });
             runner.endWorkerProcess(worker, function(err) {
@@ -390,3 +390,5 @@ function MockWorker( whenDone ) {
     }, whenDone || 10);
 }
 util.inherits(MockWorker, events.EventEmitter);
+
+function noop() {}
