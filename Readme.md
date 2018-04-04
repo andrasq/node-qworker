@@ -43,6 +43,7 @@ Options:
   Anchored script names (those starting with `/`) are loaded by explicit pathname.
 - `maxUseCount` - how many scripts a worker process may run before being retired.
   Default 1, use a new process for each script.
+- `niceLevel` - worker process unix priority level, 19 lowest, -19 highest, default 0.
 
 ### runner.run( script, [payload], callback( err, ret ) )
 
@@ -61,6 +62,19 @@ a standard callback:
         callback(null, 'sample script done!');
     }
 
+### runner.runWithOptions( script, options, [payload,] callback( err, ret ) )
+
+Like `run()`, but pass additional options when creating the worker process.
+
+Options:
+- `timeout` - how long a job may take to finish, in milliseconds.
+  If zero, uses the runner default.
+- `niceLevel` - worker process unix priority level, 19 lowest, -19 highest.
+  If zero, uses the runner defdault.
+
+Options take effect in new worker processes created to run the script, so for
+predictability always use the same options for the same script.
+
 ### runner.defaults( [options] )
 
 Create a new job runner with the combined settings of both the existing runner and the
@@ -70,6 +84,7 @@ runner share worker queues.
 
 ## ChangeLog
 
+- 0.4.0 - `niceLevel` job runner option, `runWithOptions` method
 - 0.3.1 - fix processExists for non-numeric pids on node-v0.10
 - 0.3.0 - kill scripts that exceed their timeout, fix worker reuse
 
