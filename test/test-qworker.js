@@ -183,6 +183,15 @@ module.exports = {
             })
         },
 
+        'runWithOptions should require options and callback': function(t) {
+            t.throws(function() { runner.runWithOptions() }, /missing script name/);
+            t.throws(function() { runner.runWithOptions(true) }, /missing script name/);
+            t.throws(function() { runner.runWithOptions('ping') }, /missing options/);
+            t.throws(function() { runner.runWithOptions('ping', 1.25) }, /missing options/);
+            t.throws(function() { runner.runWithOptions('ping', {}, {}) }, /callback required/);
+            t.done();
+        },
+
         'runWithOptions should use job timeout': function(t) {
             var runner = qworker({ scriptDir: __dirname + '/scripts' });
             var spy = t.spy(runner, 'createWorkerProcess');
