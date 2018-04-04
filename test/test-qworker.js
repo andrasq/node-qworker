@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2017 Andras Radics
+ * Copyright (C) 2017-2018 Andras Radics
  * Licensed under the Apache License, Version 2.0
  */
 
@@ -81,7 +81,7 @@ module.exports = {
 
         'should return from job only once': function(t) {
             var worker = new MockWorker();
-            var spy = t.stubOnce(runner, 'createWorkerProcess', function(script, launch){ process.nextTick(launch); return worker });
+            var spy = t.stubOnce(runner, 'createWorkerProcess', function(script, job, launch){ process.nextTick(launch); return worker });
             var callCount = 0;
             runner.run('fakescript', function(err, ret) {
                 callCount += 1;
@@ -129,6 +129,18 @@ module.exports = {
             });
         },
 
+        'run should invoke runWithOptions': function(t) {
+            var spy = t.spyOnce(runner, 'runWithOptions');
+            runner.run('ping', { x: process.pid }, function(err, ret) {
+                t.ifError(err);
+                t.ok(spy.called);
+                t.deepEqual(spy.args[0][0], 'ping');
+                t.deepEqual(spy.args[0][1], {});
+                t.deepEqual(spy.args[0][2], { x: process.pid });
+                t.done();
+            });
+        },
+
         'should run a job by explicit filepath': function(t) {
             runner.run(__dirname + '/scripts_alt/ping', { x: process.pid }, function(err, ret) {
                 t.ifError(err);
@@ -167,6 +179,35 @@ module.exports = {
             runner.run('error', function(err, ret) {
                 t.ok(err);
                 t.equal(err.message, 'script error');
+                t.done();
+            })
+        },
+
+        'runWithOptions should require options and callback': function(t) {
+            t.throws(function() { runner.runWithOptions() }, /missing script name/);
+            t.throws(function() { runner.runWithOptions(true) }, /missing script name/);
+            t.throws(function() { runner.runWithOptions('ping') }, /missing options/);
+            t.throws(function() { runner.runWithOptions('ping', 1.25) }, /missing options/);
+            t.throws(function() { runner.runWithOptions('ping', {}, {}) }, /callback required/);
+            t.done();
+        },
+
+        'runWithOptions should use job timeout': function(t) {
+            var runner = qworker({ scriptDir: __dirname + '/scripts' });
+            var spy = t.spy(runner, 'createWorkerProcess');
+            runner.runWithOptions('ping', { timeout: 1234 }, 'pong', function(err, ret) {
+                t.ok(spy.called);
+                t.equal(spy.args[0][1].timeout, 1234);
+                t.done();
+            })
+        },
+
+        'runWithOptions should set nice level': function(t) {
+            var runner = qworker({ scriptDir: __dirname + '/scripts' });
+            var spy = t.spy(runner, 'createWorkerProcess');
+            runner.runWithOptions('ping', { niceLevel: 1234 }, 'pong', function(err, ret) {
+                t.ok(spy.called);
+                t.equal(spy.args[0][1].niceLevel, 1234);
                 t.done();
             })
         },
@@ -224,7 +265,7 @@ module.exports = {
         'createWorkerProcess should fork and return annotated child process': function(t) {
             var worker = new MockWorker();
             var spy = t.stubOnce(child_process, 'fork', function(){ return worker });
-            var worker2 = runner.createWorkerProcess('scriptName');
+            var worker2 = runner.createWorkerProcess('scriptName', {}, noop);
             t.equal(spy.callCount, 1);
             t.equal(worker2._script, 'scriptName');
             t.equal(worker2._useCount, 0);
@@ -235,20 +276,43 @@ module.exports = {
         'createWorkerProcess should reuse a recycled process': function(t) {
             var worker = new MockWorker();
             var spy = t.stub(child_process, 'fork', function(){ return worker });
-            var worker1 = runner.createWorkerProcess('scriptName');
+            var worker1 = runner.createWorkerProcess('scriptName', {}, noop);
             t.stubOnce(runner, 'processExists', function(){ return true });
             runner.endWorkerProcess(worker1, function(err, endedWorker) {
-                t.equal(runner._workerPool.getLength('scriptName'), 1);
-                var worker2 = runner.createWorkerProcess('scriptName');
                 spy.restore();
+                t.equal(runner._workerPool.getLength('scriptName'), 1);
+                var worker2 = runner.createWorkerProcess('scriptName', {}, noop);
                 t.equal(worker2, worker1);
                 t.equal(spy.callCount, 1);
                 t.done();
             })
         },
 
+        'createWorkerProcess should create a worker at the configured priority': function(t) {
+            var runner = qworker({ niceLevel: 12, scriptDir: __dirname + '/scripts' });
+            var procs;
+            var worker = runner.run('ps-self', function(err, ret) {
+                t.ifError(err);
+                var regex = new RegExp("^\\s*" + ret.pid + "\\s* 12$", "m");
+                t.ok(regex.test(ret.stdout));
+                t.done();
+            })
+        },
+
+        'createWorkerProcess should return renice error': function(t) {
+            var runner = qworker({ niceLevel: 'NaN', scriptDir: __dirname + '/scripts' });
+            var spy = t.stub(process.stdout, 'write');
+            var worker = runner.run('sleep', { ms: 10 }, function(err, ret) {
+                spy.restore();
+                t.ifError(err);
+                t.ok(spy.called);
+                t.contains(spy.args[0][0], 'failed to renice process ' + ret.pid);
+                t.done();
+            })
+        },
+
         'killWorkerProcess should cause worker process to exit': function(t) {
-            var worker = runner.createWorkerProcess('process_to_kill');
+            var worker = runner.createWorkerProcess('process_to_kill', {}, noop);
             t.equal(worker.exitCode, null);
             var workerPid = worker.pid;
             runner.killWorkerProcess(worker, function(err, ret) {
@@ -261,7 +325,7 @@ module.exports = {
         },
 
         'endWorkerProcess should tell the worker to stop': function(t) {
-            var worker = runner.createWorkerProcess('sleep', function(err) {
+            var worker = runner.createWorkerProcess('sleep', {}, function(err) {
                 worker._useCount = 999999;
                 runner.endWorkerProcess(worker, function(err, proc) {
                     // the worker process either exited voluntarily or was killed.
@@ -276,7 +340,7 @@ module.exports = {
         },
 
         'endWorkerProcess should end a killed worker': function(t) {
-            var worker = runner.createWorkerProcess('sleep');
+            var worker = runner.createWorkerProcess('sleep', {}, noop);
             worker._useCount = 999999;
             process.kill(worker.pid, 'SIGHUP');
             runner.endWorkerProcess(worker, function(err, proc) {
@@ -342,7 +406,7 @@ module.exports = {
 
         'endWorkerProcess should kill the process if it takes too long to exit': function(t) {
             var blockingScript = __dirname + '/scripts/block';
-            var worker = runner.createWorkerProcess(blockingScript);
+            var worker = runner.createWorkerProcess(blockingScript, {}, noop);
             // arrange to use this worker process
             t.stubOnce(runner, 'processExists', function(){ return true });
             runner.endWorkerProcess(worker, function(err) {
@@ -390,3 +454,5 @@ function MockWorker( whenDone ) {
     }, whenDone || 10);
 }
 util.inherits(MockWorker, events.EventEmitter);
+
+function noop() {}
