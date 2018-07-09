@@ -84,6 +84,7 @@ runner share worker queues.
 
 ## ChangeLog
 
+- 0.5.0 - simplify package layout, option to set a job mutex
 - 0.4.0 - `niceLevel` job runner option, `runWithOptions` method
 - 0.3.1 - fix processExists for non-numeric pids on node-v0.10
 - 0.3.0 - kill scripts that exceed their timeout, fix worker reuse

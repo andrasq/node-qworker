@@ -1,7 +1,7 @@
 {
   "name": "qworker",
-  "version": "0.4.0",
-  "main": "lib/qworker.js",
+  "version": "0.5.0",
+  "main": "qworker.js",
   "description": "quick work script runner",
   "license": "Apache-2.0",
   "keywords": ["worker", "queue", "script", "runner"],
@@ -11,6 +11,7 @@
 
   "author": "andrasq",
   "repository": "git://github.com/andrasq/node-qworker",
+  "readme": "see README.md in the repo",
 
   "dependencies": {
     "qcache": "0.5.0",
