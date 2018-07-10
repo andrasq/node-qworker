@@ -136,7 +136,7 @@ function QwRunner( options ) {
     return this;
 }
 
-/**
+///**
 // TODO:
 QwRunner.prototype.close = function close( ) {
 console.log("AR: close running");

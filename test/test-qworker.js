@@ -237,7 +237,7 @@ module.exports = {
         },
 
         'close should terminate all worker processes': function(t) {
-            t.skip();
+//            t.skip();
 
             var runner2 = qworker({
                 scriptDir: __dirname + '/scripts',
