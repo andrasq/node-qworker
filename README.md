@@ -44,6 +44,7 @@ Options:
 - `maxUseCount` - how many scripts a worker process may run before being retired.
   Default 1, use a new process for each script.
 - `niceLevel` - worker process unix priority level, 19 lowest, -19 highest, default 0.
+- `idleTimeout` - have worker processes exit after a period of inactivity, in milliseconds
 
 ### runner.run( script, [payload], callback( err, ret ) )
 
@@ -74,6 +75,7 @@ Options:
 - `lockfile` - use the file for a job mutex.  Stores the worker `pid` in the file
   while the job is running, removes the file when the job is done.  Abandoned locks
   are overwritten.  Default is no mutex.
+- `idleTimeout` - have worker process exit after so many ms of inactivity
 
 Some options take effect in newly created worker processes, but the script may be run
 by an existing worker process.  For predictability always use the same options for the
