@@ -71,9 +71,13 @@ Options:
   If zero, uses the runner default.
 - `niceLevel` - worker process unix priority level, 19 lowest, -19 highest.
   If zero, uses the runner defdault.
+- `lockfile` - use the file for a job mutex.  Stores the worker `pid` in the file
+  while the job is running, removes the file when the job is done.  Abandoned locks
+  are overwritten.  Default is no mutex.
 
-Options take effect in new worker processes created to run the script, so for
-predictability always use the same options for the same script.
+Some options take effect in newly created worker processes, but the script may be run
+by an existing worker process.  For predictability always use the same options for the
+same script.
 
 ### runner.defaults( [options] )
 
@@ -84,7 +88,7 @@ runner share worker queues.
 
 ## ChangeLog
 
-- 0.5.0 - simplify package layout, fix duplicate 'done' callbacks
+- 0.5.0 - simplify package layout, fix duplicate 'done' callbacks, option to set a job mutex
 - 0.4.0 - `niceLevel` job runner option, `runWithOptions` method
 - 0.3.1 - fix processExists for non-numeric pids on node-v0.10
 - 0.3.0 - kill scripts that exceed their timeout, fix worker reuse

@@ -5,6 +5,7 @@
 
 'use strict';
 
+var fs = require('fs');
 var child_process = require('child_process');
 var util = require('util');
 var events = require('events');
@@ -433,6 +434,91 @@ module.exports = {
             var ret = runner.sendTo({}, { qwType: 'test' });
             t.strictEqual(ret, false);
             t.done();
+        },
+    },
+
+    'locking': {
+        setUp: function(done) {
+            fs.unlink('./sleep.pid', function() {
+            fs.unlink('./lock.pid', function() {
+            done();
+            }) })
+        },
+
+        'should set mutex while script is running': function(t) {
+            var pid, lockfileName = './sleep.pid';
+            runner.runWithOptions('sleep', { lockfile: lockfileName }, { ms: 100 }, function(err, info) {
+                t.ok(!err);
+                t.equal(+pid, +info.pid);
+                t.throws(function(){ fs.readFileSync(lockfileName) }, /ENOENT/);
+                t.done();
+            })
+            setTimeout(function() {
+                pid = fs.readFileSync(lockfileName);
+            }, 80);
+        },
+
+        'should return error if mutex is set': function(t) {
+            var lockfileName = './sleep.pid';
+            fs.writeFileSync(lockfileName, process.pid);
+            runner.runWithOptions('sleep', { lockfile: lockfileName }, { ms: 100 }, function(err, info) {
+                t.ok(err);
+                fs.unlinkSync(lockfileName);
+                t.contains(err.message, 'cannot break');
+                t.done();
+            })
+        },
+
+        'should return lockfile write error': function(t) {
+            var lockfileName = '/none/such';
+            runner.runWithOptions('sleep', { lockfile: lockfileName }, { ms: 100 }, function(err, info) {
+                t.ok(err);
+                t.done();
+            })
+        },
+
+        'should break abandoned lock': function(t) {
+            var child = child_process.exec("sleep 1");
+            var unusedPid = child.pid;
+            process.kill(unusedPid, 'SIGKILL');
+            var lockfileName = './sleep.pid';
+            fs.writeFileSync(lockfileName, unusedPid);
+            runner.runWithOptions('sleep', { lockfile: lockfileName }, { ms: 10 }, function(err, info) {
+                t.ok(!err);
+                t.equal(info.ms, 10);
+                t.done();
+            })
+        },
+
+        'clearLock should not break a held mutex': function(t) {
+            fs.writeFileSync('./lock.pid', process.pid);
+            t.throws(function(){ runner.clearLock('./lock.pid', process.pid + 1) }, /not our lock/);
+            fs.writeFileSync('./lock.pid', 'theirPid');
+            t.throws(function(){ runner.clearLock('./lock.pid', 'myPid') }, /not our lock/);
+            t.done();
+        },
+
+        'clearLock should break abandoned lock': function(t) {
+            fs.writeFileSync('./lock.pid', '999999999');
+            runner.clearLock('./lock.pid', '1');
+            t.throws(function(){ fs.readFileSync('./lock.pid') }, /ENOENT/);
+            t.done();
+        },
+
+        'clearLock should ignore an already cleared mutex': function(t) {
+            runner.clearLock('./lock.pid', process.pid);
+            t.done();
+        },
+
+        'clearLock should tolerate a forcibly altered lockfile': function(t) {
+            runner.runWithOptions('pid', { lockfile: './sleep.pid' }, { ms: 100 }, function(err, info) {
+                t.ok(!err);
+                t.done();
+            })
+            setTimeout(function() {
+                // overwrite the mutex, force a 'not our lock' clearLock error
+                fs.writeFileSync('./sleep.pid', '1');
+            }, 80);
         },
     },
 }

@@ -11,6 +11,7 @@
 
 'use strict';
 
+var fs = require('fs');
 var qinvoke = require('qinvoke');
 
 
@@ -142,7 +143,8 @@ QwRunner.prototype.runWithOptions = function runWithOptions( script, options, pa
 
     var jobTimeout = options.timeout || this.jobTimeout;
     var niceLevel = options.niceLevel || this.niceLevel;
-    var job = { script: script, payload: payload, timeout: jobTimeout, niceLevel: niceLevel };
+    var lockfile = options.lockfile;
+    var job = { script: script, payload: payload, timeout: jobTimeout, niceLevel: niceLevel, lockfile: lockfile };
     this._workQueue.push(job, callback);
 }
 
@@ -169,6 +171,11 @@ QwRunner.prototype.jobRunner = function jobRunner( job, cb ) {
                 cbCalled = true;
                 cb(err, ret);
             }
+        }
+
+        if (job.lockfile) {
+            try { self.setLock(job.lockfile, worker.pid) }
+            catch (err) { return cbOnce(err) }
         }
 
         if (job.timeout > 0) {
@@ -200,6 +207,10 @@ QwRunner.prototype.jobRunner = function jobRunner( job, cb ) {
                 worker.removeListener('message', returnOnDone);
                 worker.removeListener('error', killOnError);
                 self.endWorkerProcess(worker, noop);
+                if (job.lockfile) {
+                    try { self.clearLock(job.lockfile, worker.pid) }
+                    catch (err) { console.log(new Date().toISOString() + " -- qworker clearLock error: " + err) }
+                }
                 var err = workerMessage.err ? qinvoke.objectToError(workerMessage.err) : workerMessage.err;
                 cbOnce(err, workerMessage.result);
             }
@@ -210,6 +221,7 @@ QwRunner.prototype.jobRunner = function jobRunner( job, cb ) {
     }
 }
 
+// obtain a worker to run the job, either from the workerPool or create new
 QwRunner.prototype.createWorkerProcess = function createWorkerProcess( script, job, callback ) {
     // set the qworkerId so the forked worker inherits it
     process.env.NODE_QWORKER = this._nextWorkerId++;
@@ -252,6 +264,7 @@ QwRunner.prototype.endWorkerProcess = function endWorkerProcess( worker, callbac
     if (ix >= 0) this._workers.splice(ix, 1);
     // TODO: splice is slow, store undefined and periodically compact the list
 
+    // TODO: test with processNotExists
     if (!this.processExists(worker)) {
         callback(null, worker);
         return;
@@ -299,11 +312,56 @@ QwRunner.prototype.processExists = function processExists( proc ) {
         return true;
     } catch (err) {
         // if the process is not found it does not exist
-        // if (err.message.indexOf('ESRCH') >= 0) return false;
+        // if (err.code === 'ESRCH') >= 0) return false;
         // a process that exists but is not ours is a sign of a bad pid, ignore it
-        // if (err.message.indexOf('EPERM') >= 0) return true;
+        // if (err.code === 'EPERM') >= 0) return true;
         // on all other errors assume not exist
         return false;
+    }
+}
+
+// verify that that the process `pid` is not running
+QwRunner.prototype.processNotExists = function processNotExists( pid ) {
+    try { process.kill(+pid, 0); return false }
+    catch (err) { return err.code === 'ESRCH' }
+}
+
+// set a job mutex in the filesystem (file containing the lock owner pid)
+// If the mutex exists but the that process is gone, override the old lock.
+QwRunner.prototype.setLock = function setLock( lockfile, ownerPid ) {
+    var fd, self = this;
+
+    try {
+        fd = fs.openSync(lockfile, 'wx');
+        fs.closeSync(fd);
+        fs.writeFileSync(lockfile, String(ownerPid));
+    }
+    catch (err) {
+        if (err.code === 'EEXIST') {
+            breakAbandonedLock(lockfile);
+            setLock(lockfile, ownerPid);
+        }
+        else throw err;
+    }
+
+    // break the lock if is abandoned, or throw if cannot break
+    function breakAbandonedLock( lockfile ) {
+        var pid = fs.readFileSync(lockfile);
+        if (self.processNotExists(pid)) fs.unlinkSync(lockfile);
+        else throw new Error(lockfile + ': cannot break lock, process ' + pid + ' exists');
+    }
+}
+
+// clear a job mutex.  The job must not exist or must be ours (contain our lock owner pid).
+QwRunner.prototype.clearLock = function clearLock( lockfile, ownerPid ) {
+    try {
+        var pid = String(fs.readFileSync(lockfile));
+        if (pid === String(ownerPid) || this.processNotExists(pid)) fs.unlinkSync(lockfile);
+        else throw new Error('not our lock');
+    }
+    catch (err) {
+        if (err.code === 'ENOENT') return;
+        throw err;
     }
 }
 
