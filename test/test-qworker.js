@@ -38,8 +38,8 @@ module.exports = {
     },
 
     'should anchor scriptDir': function(t) {
-        var runner = qworker({ scriptDir: 'myDir' });
-        t.equal(runner.scriptDir, process.cwd() + '/myDir');
+        var runner2 = qworker({ scriptDir: 'myDir' });
+        t.equal(runner2.scriptDir, process.cwd() + '/myDir');
         t.done();
     },
 
@@ -55,9 +55,9 @@ module.exports = {
 
     'options': {
         'should create runner with options': function(t) {
-            var runner = qworker({ maxWorkers: 123, timeout: 100 });
-            t.equal(runner._options.maxWorkers, 123);
-            t.equal(runner._options.timeout, 100);
+            var runner2 = qworker({ maxWorkers: 123, timeout: 100 });
+            t.equal(runner2._options.maxWorkers, 123);
+            t.equal(runner2._options.timeout, 100);
             t.done();
         },
 
@@ -194,9 +194,9 @@ module.exports = {
         },
 
         'runWithOptions should use job timeout': function(t) {
-            var runner = qworker({ scriptDir: __dirname + '/scripts' });
-            var spy = t.spy(runner, 'createWorkerProcess');
-            runner.runWithOptions('ping', { timeout: 1234 }, 'pong', function(err, ret) {
+            var runner2 = qworker({ scriptDir: __dirname + '/scripts' });
+            var spy = t.spy(runner2, 'createWorkerProcess');
+            runner2.runWithOptions('ping', { timeout: 1234 }, 'pong', function(err, ret) {
                 t.ok(spy.called);
                 t.equal(spy.args[0][1].timeout, 1234);
                 t.done();
@@ -204,9 +204,9 @@ module.exports = {
         },
 
         'runWithOptions should set nice level': function(t) {
-            var runner = qworker({ scriptDir: __dirname + '/scripts' });
-            var spy = t.spy(runner, 'createWorkerProcess');
-            runner.runWithOptions('ping', { niceLevel: 1234 }, 'pong', function(err, ret) {
+            var runner2 = qworker({ scriptDir: __dirname + '/scripts' });
+            var spy = t.spy(runner2, 'createWorkerProcess');
+            runner2.runWithOptions('ping', { niceLevel: 1234 }, 'pong', function(err, ret) {
                 t.ok(spy.called);
                 t.equal(spy.args[0][1].niceLevel, 1234);
                 t.done();
@@ -290,9 +290,9 @@ module.exports = {
         },
 
         'createWorkerProcess should create a worker at the configured priority': function(t) {
-            var runner = qworker({ niceLevel: 12, scriptDir: __dirname + '/scripts' });
+            var runner2 = qworker({ niceLevel: 12, scriptDir: __dirname + '/scripts' });
             var procs;
-            var worker = runner.run('ps-self', function(err, ret) {
+            var worker = runner2.run('ps-self', function(err, ret) {
                 t.ifError(err);
                 var regex = new RegExp("^\\s*" + ret.pid + "\\s* 12$", "m");
                 t.ok(regex.test(ret.stdout));
@@ -301,9 +301,9 @@ module.exports = {
         },
 
         'createWorkerProcess should return renice error': function(t) {
-            var runner = qworker({ niceLevel: 'NaN', scriptDir: __dirname + '/scripts' });
+            var runner2 = qworker({ niceLevel: 'NaN', scriptDir: __dirname + '/scripts' });
             var spy = t.stub(process.stdout, 'write');
-            var worker = runner.run('sleep', { ms: 10 }, function(err, ret) {
+            var worker = runner2.run('sleep', { ms: 10 }, function(err, ret) {
                 spy.restore();
                 t.ifError(err);
                 t.ok(spy.called);
