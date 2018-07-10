@@ -235,6 +235,34 @@ module.exports = {
                 t.done();
             })
         },
+
+        'close should terminate all worker processes': function(t) {
+            t.skip();
+
+            var runner2 = qworker({
+                scriptDir: __dirname + '/scripts',
+                maxUseCount: 10,
+                workerExitTimeout: 200,
+            });
+            var spy = t.spy(runner2, 'endWorkerProcess');
+            runner2.run('pid', {}, function(err, pidPid) {
+console.log("AR: ping got", err, pidPid);
+// FIXME: the ping process exits (should be in workerPool)
+                runner2.run('sleep', { ms: 100 }, function(err, sleepInfo) {
+console.log("AR: sleep got", err, sleepInfo);
+// FIXME: sleep did not get killed (it did, but spy did not capture the call)
+                    t.ok(spy.called);
+                    t.equal(spy.callCount, 2);
+console.log("AR: spy.args", spy.args[0]);
+                    t.equal(spy.args[0][2], true);
+                    t.equal(spy.args[1][2], true);
+                    t.done();
+                })
+                setTimeout(function() {
+                    runner2.close();
+                }, 80);
+            })
+        },
     },
 
     'errors': {
@@ -481,6 +509,10 @@ module.exports = {
                     t.done();
                 }, 10);
             })
+        },
+
+        'endWorkerProcess should forceQuit': function(t) {
+            t.skip();
         },
 
         'sendTo should return false on error': function(t) {

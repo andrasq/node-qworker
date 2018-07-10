@@ -136,6 +136,21 @@ function QwRunner( options ) {
     return this;
 }
 
+/**
+// TODO:
+QwRunner.prototype.close = function close( ) {
+console.log("AR: close running");
+    var worker;
+    // TODO: foreach name in workerPool.getNames() {
+    // TODO:   while (worker = workerPool.get(name)) ...
+    // TODO: }
+    for (var i=0; i<this._workers.length; i++) {
+console.log("AR: closing running pid", this._workers[i].pid);
+        this.endWorkerProcess(this._workers[i], noop, true);
+    }
+}
+/**/
+
 // function called by the user to schedule a job
 QwRunner.prototype.run = function run( script, payload, callback ) {
     return this.runWithOptions(script, {}, payload, callback);
@@ -278,7 +293,7 @@ QwRunner.prototype.createWorkerProcess = function createWorkerProcess( script, j
 }
 
 // done with worker, recycle for reuse or discard
-QwRunner.prototype.endWorkerProcess = function endWorkerProcess( worker, callback ) {
+QwRunner.prototype.endWorkerProcess = function endWorkerProcess( worker, callback, forceQuit ) {
     // remove the worker from our caches
     var ix = this._workers.indexOf(worker);
     if (ix >= 0) this._workers.splice(ix, 1);
@@ -297,7 +312,7 @@ QwRunner.prototype.endWorkerProcess = function endWorkerProcess( worker, callbac
     }
 
     // if the process is still usable, cache it for reuse
-    if (++worker._useCount < this.maxUseCount) {
+    if (++worker._useCount < this.maxUseCount && !forceQuit) {
         worker._kstopped = false;
         this.mvPush(this._workerPool, worker._script, worker);
         callback(null, worker);
