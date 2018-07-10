@@ -511,8 +511,13 @@ module.exports = {
         },
 
         'clearLock should tolerate a forcibly altered lockfile': function(t) {
-            runner.runWithOptions('pid', { lockfile: './sleep.pid' }, { ms: 100 }, function(err, info) {
+            var spy = t.spy(process.stdout, 'write');
+            runner.runWithOptions('sleep', { lockfile: './sleep.pid' }, { ms: 100 }, function(err, info) {
+                fs.unlinkSync('./sleep.pid');
                 t.ok(!err);
+                t.ok(spy.called);
+                var output = concatOutputLines(spy.args, 0);
+                t.contains(output, 'clearLock error');
                 t.done();
             })
             setTimeout(function() {
@@ -542,3 +547,9 @@ function MockWorker( whenDone ) {
 util.inherits(MockWorker, events.EventEmitter);
 
 function noop() {}
+
+function concatOutputLines( spyArgs, index ) {
+    var output = '';
+    for (var i=0; i<spyArgs.length; i++) output += spyArgs[i][index];
+    return output;
+}
