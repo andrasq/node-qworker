@@ -18,6 +18,8 @@ var qinvoke = require('qinvoke');
 if (process.env.NODE_QWORKER) {
     // qworker mode, start the worker, listen for work
 
+    // TODO: var disrequire = require('disrequire');
+
     new QwWorker().runScripts();
 }
 else {
@@ -36,7 +38,6 @@ function QwWorker( ) {
     // cannot use a prototype unless the worker runs that part of the script first
     this.runScripts = runScripts;
     this.runScriptJob = runScriptJob;
-    // this.uncacheModule = uncacheModule;
     this.sendTo = sendTo;
     // TODO: time out worker after a period of inactivity
 }
@@ -70,7 +71,7 @@ function runScripts() {
 // worker scripts export a function taking a single argument and a callback
 function runScriptJob( job, callback ) {
     try {
-        // if reusing workers for different scripts, periodically uncacheModule(job.script)
+        // if reusing workers for different scripts, periodically disrequire(job.script)
         // see the `disrequire` npm package
         var runner = require(job.script);
         runner(job.payload, callback);
@@ -79,18 +80,6 @@ function runScriptJob( job, callback ) {
         callback(err);
     }
 }
-
-/**
-// worker:
-function uncacheModule( path ) {
-    var module = require.cache[path];
-    if (module) {
-        var ix = module.parent.children.indexOf(module);
-        if (ix >= 0) module.parent.children.splice(ix, 1);
-        delete require.cache[path];
-    }
-}
-**/
 
 function QwRunner( options ) {
     options = options || {};
