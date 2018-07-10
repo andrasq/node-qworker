@@ -130,6 +130,29 @@ module.exports = {
             });
         },
 
+        'should run jobs back to back': function(t) {
+            var pid1, pid2, pid3;
+            var ncalls = 0;
+            runner.run('pid', 1, function(err, ret) {
+                ncalls += 1;
+                t.ifError(err);
+                pid1 = ret;
+                runner.run('pid', 2, function(err, ret) {
+                    ncalls += 1;
+                    t.ifError(err);
+                    pid2 = ret;
+                    runner.run('ping', 3, function(err, ret) {
+                        ncalls += 1;
+                        t.ifError(err);
+                        pid3 = ret;
+                        t.ok(pid1 == pid2 || pid2 == pid3);     // check maxUesCount
+                        t.equal(ncalls, 3);                     // callbacks called exactly once each
+                        setTimeout(function(){ t.done() }, 20);
+                    })
+                })
+            })
+        },
+
         'run should invoke runWithOptions': function(t) {
             var spy = t.spyOnce(runner, 'runWithOptions');
             runner.run('ping', { x: process.pid }, function(err, ret) {
