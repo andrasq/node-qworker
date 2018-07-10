@@ -70,6 +70,7 @@ function runScripts() {
 function runScriptJob( job, callback ) {
     try {
         // if reusing workers for different scripts, periodically uncacheModule(job.script)
+        // see the `disrequire` npm package
         var runner = require(job.script);
         runner(job.payload, callback);
     }
@@ -196,7 +197,7 @@ QwRunner.prototype.jobRunner = function jobRunner( job, cb ) {
                 // processing finished, returns error or result
                 // TODO: allow per-worker job concurrency > 1
                 worker.removeListener('exit', returnOnExit);
-                worker.removeListener('done', returnOnDone);
+                worker.removeListener('message', returnOnDone);
                 worker.removeListener('error', killOnError);
                 self.endWorkerProcess(worker, noop);
                 var err = workerMessage.err ? qinvoke.objectToError(workerMessage.err) : workerMessage.err;
