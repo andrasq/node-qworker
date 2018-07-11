@@ -69,7 +69,8 @@ function runScripts() {
         // force exit if disconnect doesnt do the job
         // TODO: make this stopTimeout configurable
         setTimeout(process.exit, 2000).unref();
-        process.disconnect();
+        // disconnect, but suppress "already disconnected" errors
+        try { process.disconnect() } catch (e) { }
     }
 }
 

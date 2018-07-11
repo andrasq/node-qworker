@@ -453,6 +453,18 @@ module.exports = {
             })
         },
 
+        'idleTimeout should end the worker process': function(t) {
+            var runner2 = qworker({ idleTimeout: 2, maxUseCount: 10, scriptDir: __dirname + '/scripts' });
+            runner2.run('pid', {}, function(err, ret) {
+                t.ok(ret > 0);
+                t.ok(ret !== process.pid);
+                setTimeout(function() {
+                    t.ok(runner2.processNotExists(ret));
+                    t.done();
+                }, 10);
+            })
+        },
+
         'sendTo should return false on error': function(t) {
             var ret = runner.sendTo({}, { qwType: 'test' });
             t.strictEqual(ret, false);
