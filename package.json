@@ -1,6 +1,6 @@
 {
   "name": "qworker",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "main": "qworker.js",
   "description": "quick work script runner",
   "license": "Apache-2.0",
@@ -14,7 +14,6 @@
   "readme": "see README.md in the repo",
 
   "dependencies": {
-    "qcache": "0.5.0",
     "qhash": "1.1.1",
     "qinvoke": "0.11.3",
     "quickq": "0.10.0"

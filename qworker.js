@@ -27,7 +27,6 @@ else {
 
     var child_process = require('child_process');
     var qhash = require('qhash');
-    var mvcache = require('qcache/mvcache');
     var quickq = require('quickq');
 
     module.exports = QwRunner;
@@ -88,6 +87,29 @@ function runScriptJob( job, callback ) {
     }
 }
 
+// quick-and-easy multi-value cache
+function MvCache( ) {
+    this.store = {};
+}
+MvCache.prototype.push = function push( key, value ) {
+    this.store[key] ? this.store[key].push(value) : (this.store[key] = new Array(value));
+}
+MvCache.prototype.shift = function get( key ) {
+    if (!this.store[key]) return undefined;
+    var ret = this.store[key].shift();
+    if (!this.store[key].length) delete this.store[key];
+    return ret;
+}
+MvCache.prototype.delete = function delete_( key, value ) {
+    if (!this.store[key]) return;
+    var ix = this.store[key] && this.store[key].indexOf(value);
+    if (ix >= 0) this.store[key].splice(ix, 1);
+    if (!this.store[key].length) delete this.store[key];
+}
+MvCache.prototype.getKeys = function getKeys( ) {
+    return Object.keys(this.store);
+}
+
 function QwRunner( options ) {
     options = options || {};
     if (! (this instanceof QwRunner)) return new QwRunner(options);
@@ -106,7 +128,7 @@ function QwRunner( options ) {
     }
     this._workQueue = quickq(jobRunner, this.maxWorkers);
     this._workers = new Array();
-    this._workerPool = new mvcache();
+    this._workerPool = new MvCache();
     this._nextWorkerId = 1;
 
     if (this.scriptDir[0] !== '/') this.scriptDir = process.cwd() + '/' + this.scriptDir;
@@ -228,7 +250,7 @@ QwRunner.prototype.createWorkerProcess = function createWorkerProcess( script, j
     process.env.NODE_QWORKER = this._nextWorkerId++;
 
     do {
-        var worker = this._workerPool.get(script);
+        var worker = this._workerPool.shift(script);
     } while (worker && !this.processExists(worker));
     if (worker) {
         process.nextTick(function(){ callback(null, worker) });
@@ -268,7 +290,7 @@ QwRunner.prototype.endWorkerProcess = function endWorkerProcess( worker, callbac
     if (ix >= 0) this._workers.splice(ix, 1);
     // TODO: splice is slow, store undefined and periodically compact the list
 
-// FIXME: if process exited, also remove from workerPool
+    this._workerPool.delete(worker._script, worker);
 
     // TODO: test with processNotExists
     if (!this.processExists(worker)) {

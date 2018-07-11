@@ -304,7 +304,7 @@ module.exports = {
             var stub = t.stub(runner, 'processExists', function(worker){ return worker ? true : false });
             runner.endWorkerProcess(worker1, function(err, endedWorker) {
                 spy.restore();
-                t.equal(runner._workerPool.getLength('scriptName'), 1);
+                t.equal(runner._workerPool.store['scriptName'].length, 1);
                 var worker2 = runner.createWorkerProcess('scriptName', {}, noop);
                 stub.restore();
                 t.equal(worker2, worker1);
@@ -471,6 +471,90 @@ module.exports = {
         'sendTo should return false on error': function(t) {
             var ret = runner.sendTo({}, { qwType: 'test' });
             t.strictEqual(ret, false);
+            t.done();
+        },
+
+        'workerPool MvCache push should set a list property': function(t) {
+            var runner2 = qworker();
+            var pool = runner2._workerPool;
+
+            t.strictEqual(pool.store.a, undefined);
+            pool.push('a', 'x');
+            t.ok(Array.isArray(pool.store.a));
+            t.deepEqual(pool.store.a, ['x']);
+            pool.push('a', 'y');
+            t.deepEqual(pool.store.a, ['x', 'y']);
+
+            pool.push('b', 'z');
+            t.deepEqual(pool.store.a, ['x', 'y']);
+            t.deepEqual(pool.store.b, ['z']);
+
+            t.done();
+        },
+
+        'workerPool MvCache shift should return the next item': function(t) {
+            var runner2 = qworker();
+            var pool = runner2._workerPool;
+
+            t.strictEqual(pool.shift('a'), undefined);
+
+            pool.push('a', 'x');
+            pool.shift('b');
+            t.strictEqual(pool.shift('a'), 'x');
+            t.strictEqual(pool.shift('a'), undefined);
+            t.strictEqual(pool.store.a, undefined);
+
+            pool.push('a', 'y');
+            pool.push('a', 'z');
+            t.strictEqual(pool.shift('a'), 'y');
+            t.strictEqual(pool.shift('a'), 'z');
+            t.strictEqual(pool.shift('a'), undefined);
+            t.strictEqual(pool.store.a, undefined);
+
+            t.done();
+        },
+
+        'workerPool MvCache delete should remove the item': function(t) {
+            var runner2 = qworker();
+            var pool = runner2._workerPool;
+
+            pool.delete('a', 'x');
+            t.strictEqual(pool.store.a, undefined);
+
+            pool.push('a', 'x');
+            pool.delete('a', 'y');
+            t.deepEqual(pool.store.a, ['x']);
+            pool.delete('b', 'x');
+            t.deepEqual(pool.store.a, ['x']);
+            pool.delete('a', 'x');
+            t.strictEqual(pool.store.a, undefined);
+
+            pool.push('a', 'x');
+            pool.push('a', 'y');
+            pool.push('a', 'z');
+            pool.delete('a', 'y');
+            t.deepEqual(pool.store.a, ['x', 'z']);
+            pool.delete('a', 'z');
+            t.deepEqual(pool.store.a, ['x']);
+            pool.delete('a', 'x');
+            t.strictEqual(pool.store.a, undefined);
+
+            t.done();
+        },
+
+        'workerPool MvCache getKeys should return currently stored keys': function(t) {
+            var runner2 = qworker();
+            var pool = runner2._workerPool;
+
+            t.deepEqual(pool.getKeys(), []);
+
+            pool.push('a', 'x');
+            t.deepEqual(pool.getKeys(), ['a']);
+            pool.push('b', 'y');
+            t.deepEqual(pool.getKeys(), ['a', 'b']);
+            pool.delete('a', 'x');
+            t.deepEqual(pool.getKeys(), ['b']);
+
             t.done();
         },
     },
