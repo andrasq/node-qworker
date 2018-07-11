@@ -90,7 +90,7 @@ runner share worker queues.
 
 ## ChangeLog
 
-- 0.6.1 - `idleTimeout` option, use own MvCache
+- 0.6.1 - `idleTimeout` option, use own MvCache, clean up after killed processes
 - 0.5.0 - simplify package layout, fix duplicate 'done' callbacks, `lockfile` option to set a job mutex
 - 0.4.0 - `niceLevel` job runner option, `runWithOptions` method
 - 0.3.1 - fix processExists for non-numeric pids on node-v0.10

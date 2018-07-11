@@ -253,6 +253,7 @@ QwRunner.prototype.createWorkerProcess = function createWorkerProcess( script, j
         var worker = this._workerPool.shift(script);
     } while (worker && !this.processExists(worker));
     if (worker) {
+        // return before callback, to simplify unit tests
         process.nextTick(function(){ callback(null, worker) });
         return worker;
     }
@@ -264,6 +265,10 @@ QwRunner.prototype.createWorkerProcess = function createWorkerProcess( script, j
         worker._useCount = 0;
         worker._script = script;
         this._workers.push(worker);
+
+        // if process dies or is killed, clean up
+        var self = this;
+        worker.once('exit', function() { worker._stopped = true; self.endWorkerProcess(worker, noop) });
 
         worker.once('message', function onMessage(message) {
             // call callback once worker is running and processing messages
@@ -283,14 +288,16 @@ QwRunner.prototype.createWorkerProcess = function createWorkerProcess( script, j
 
 // done with worker, recycle for reuse or discard
 QwRunner.prototype.endWorkerProcess = function endWorkerProcess( worker, callback ) {
-    if (worker._kstopped) return callback(null, worker);
-    worker._kstopped = true;
-
+    // remove the worker from our caches
     var ix = this._workers.indexOf(worker);
     if (ix >= 0) this._workers.splice(ix, 1);
     // TODO: splice is slow, store undefined and periodically compact the list
 
     this._workerPool.delete(worker._script, worker);
+
+    // only process the worker once
+    if (worker._kstopped) return callback(null, worker);
+    worker._kstopped = true;
 
     // TODO: test with processNotExists
     if (!this.processExists(worker)) {
@@ -298,6 +305,7 @@ QwRunner.prototype.endWorkerProcess = function endWorkerProcess( worker, callbac
         return;
     }
 
+    // if the process is still usable, cache it for reuse
     if (++worker._useCount < this.maxUseCount) {
         worker._kstopped = false;
         this._workerPool.push(worker._script, worker);

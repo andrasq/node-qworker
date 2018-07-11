@@ -283,6 +283,21 @@ module.exports = {
                 t.done();
             })
         },
+
+        'should clean up killed idle process': function(t) {
+            var runner2 = qworker({ maxUseCount: 10, scriptDir: __dirname + '/scripts' });
+            runner2.run('pid', {}, function(err, pid) {
+                t.ok(pid > 0);
+                t.deepEqual(runner2._workerPool.getKeys(), [ __dirname + '/scripts/pid']);
+                process.kill(pid, 'SIGTERM');
+                setTimeout(function() {
+                    t.ok(!runner2.processExists(pid));
+                    t.equal(runner2._workers.length, 0);
+                    t.equal(runner2._workerPool.getKeys().length, 0);
+                    t.done();
+                }, 100);
+            })
+        },
     },
 
     'helpers': {
