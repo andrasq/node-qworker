@@ -141,9 +141,9 @@ function QwRunner( options ) {
 QwRunner.prototype.close = function close( ) {
 console.log("AR: close running");
     var worker;
-    // TODO: foreach name in workerPool.getNames() {
-    // TODO:   while (worker = workerPool.shift(name)) ...
-    // TODO: }
+    for (var script in this._workerPool) {
+        while ((worker = this._workerPool.shift(script))) ;
+    }
     for (var i=0; i<this._workers.length; i++) {
 console.log("AR: closing running pid", this._workers[i].pid);
         this.endWorkerProcess(this._workers[i], noop, true);
