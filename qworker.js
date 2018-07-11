@@ -301,8 +301,6 @@ QwRunner.prototype.endWorkerProcess = function endWorkerProcess( worker, callbac
 
     this.mvDelete(this._workerPool, worker._script, worker);
 
-    this._workerPool.delete(worker._script, worker);
-
     // only process the worker once
     if (worker._kstopped) return callback(null, worker);
     worker._kstopped = true;
