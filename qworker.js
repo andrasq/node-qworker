@@ -227,7 +227,9 @@ QwRunner.prototype.createWorkerProcess = function createWorkerProcess( script, j
     // set the qworkerId so the forked worker inherits it
     process.env.NODE_QWORKER = this._nextWorkerId++;
 
-    var worker = this._workerPool.get(script);
+    do {
+        var worker = this._workerPool.get(script);
+    } while (worker && !this.processExists(worker));
     if (worker) {
         process.nextTick(function(){ callback(null, worker) });
         return worker;
@@ -257,6 +259,7 @@ QwRunner.prototype.createWorkerProcess = function createWorkerProcess( script, j
     }
 }
 
+// done with worker, recycle for reuse or discard
 QwRunner.prototype.endWorkerProcess = function endWorkerProcess( worker, callback ) {
     if (worker._kstopped) return callback(null, worker);
     worker._kstopped = true;
@@ -274,7 +277,6 @@ QwRunner.prototype.endWorkerProcess = function endWorkerProcess( worker, callbac
     }
 
     if (++worker._useCount < this.maxUseCount) {
-        // TODO: reuse worker, but time it out if inactive too long
         worker._kstopped = false;
         this._workerPool.push(worker._script, worker);
         callback(null, worker);

@@ -301,13 +301,15 @@ module.exports = {
             var worker = new MockWorker();
             var spy = t.stub(child_process, 'fork', function(){ return worker });
             var worker1 = runner.createWorkerProcess('scriptName', {}, noop);
-            t.stubOnce(runner, 'processExists', function(){ return true });
+            var stub = t.stub(runner, 'processExists', function(worker){ return worker ? true : false });
             runner.endWorkerProcess(worker1, function(err, endedWorker) {
                 spy.restore();
                 t.equal(runner._workerPool.getLength('scriptName'), 1);
                 var worker2 = runner.createWorkerProcess('scriptName', {}, noop);
+                stub.restore();
                 t.equal(worker2, worker1);
                 t.equal(spy.callCount, 1);
+                t.equal(endedWorker, worker1);
                 t.done();
             })
         },
