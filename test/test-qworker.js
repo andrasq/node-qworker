@@ -460,6 +460,7 @@ module.exports = {
             runner2.run('pid', {}, function(err, ret) {
                 t.ok(ret > 0);
                 t.ok(ret !== process.pid);
+                t.ok(!runner2.processNotExists(ret));
                 setTimeout(function() {
                     t.ok(runner2.processNotExists(ret));
                     t.done();
