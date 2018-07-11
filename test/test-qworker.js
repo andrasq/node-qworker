@@ -301,13 +301,15 @@ module.exports = {
             var worker = new MockWorker();
             var spy = t.stub(child_process, 'fork', function(){ return worker });
             var worker1 = runner.createWorkerProcess('scriptName', {}, noop);
-            t.stubOnce(runner, 'processExists', function(){ return true });
+            var stub = t.stub(runner, 'processExists', function(worker){ return worker ? true : false });
             runner.endWorkerProcess(worker1, function(err, endedWorker) {
                 spy.restore();
                 t.equal(runner._workerPool.getLength('scriptName'), 1);
                 var worker2 = runner.createWorkerProcess('scriptName', {}, noop);
+                stub.restore();
                 t.equal(worker2, worker1);
                 t.equal(spy.callCount, 1);
+                t.equal(endedWorker, worker1);
                 t.done();
             })
         },
@@ -450,6 +452,18 @@ module.exports = {
                         t.equal(worker.signalCode, 'SIGKILL');
                     })
                 }, 100)
+            })
+        },
+
+        'idleTimeout should end the worker process': function(t) {
+            var runner2 = qworker({ idleTimeout: 2, maxUseCount: 10, scriptDir: __dirname + '/scripts' });
+            runner2.run('pid', {}, function(err, ret) {
+                t.ok(ret > 0);
+                t.ok(ret !== process.pid);
+                setTimeout(function() {
+                    t.ok(runner2.processNotExists(ret));
+                    t.done();
+                }, 10);
             })
         },
 

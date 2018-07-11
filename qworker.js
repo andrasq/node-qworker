@@ -39,7 +39,7 @@ function QwWorker( ) {
     this.runScripts = runScripts;
     this.runScriptJob = runScriptJob;
     this.sendTo = sendTo;
-    // TODO: time out worker after a period of inactivity
+    this.idleTimer = null;
 }
 
 // worker:
@@ -50,21 +50,28 @@ function runScripts() {
 
     var self = this;
     process.on('message', function(parentMessage) {
+        clearTimeout(this.idleTimer);
         switch (parentMessage && parentMessage.pid === process.pid && parentMessage.qwType) {
         case 'job':             // run the script on payload in "job"
             runScriptJob(parentMessage.job, function(err, result) {
                 if (err && err instanceof Error) err = qinvoke.errorToObject(err);
                 self.sendTo(process, { pid: process.pid, qwType: 'done', err: err, result: result });
+                if (parentMessage.job.idleTimeout > 0) self.idleTimer = setTimeout(exitProcess, +parentMessage.job.idleTimeout);
             })
             break;
-        case 'stop':            // close IPC socket, exit naturally
-            // force exit if disconnect doesnt do the job
-            // TODO: make this stopTimeout configurable
-            setTimeout(process.exit, 2000).unref();
-            process.disconnect();
+        case 'stop':            // close IPC socket and exit naturally
+            exitProcess();
             break;
         }
     })
+
+    function exitProcess() {
+        // force exit if disconnect doesnt do the job
+        // TODO: make this stopTimeout configurable
+        setTimeout(process.exit, 2000).unref();
+        // disconnect, but suppress "already disconnected" errors
+        try { process.disconnect() } catch (e) { }
+    }
 }
 
 // worker:
@@ -92,6 +99,7 @@ function QwRunner( options ) {
     this.exitTimeout = options.workerExitTimeout || 2000;       // ms before runner kills the worker process
     this.maxUseCount = options.maxUseCount || 1;                // num scripts a worker may run before being retired
     this.niceLevel = options.niceLevel || 0;                    // unix system priority: 19 is lowest, -19 highest
+    this.idleTimeout = options.idleTimeout || 0;                // worker to exit after ms with no work to do
 
     function jobRunner( job, cb ) {
         self.jobRunner(job, cb);
@@ -130,10 +138,14 @@ QwRunner.prototype.runWithOptions = function runWithOptions( script, options, pa
     // ./ and ../ ancored scripts are considered unanchored
     if (script[0] !== '/') script = this.scriptDir + '/' + script;
 
+    // pass the job options to the worker
     var jobTimeout = options.timeout || this.jobTimeout;
     var niceLevel = options.niceLevel || this.niceLevel;
+    var idleTimeout = options.idleTimeout || this.idleTimeout;
     var lockfile = options.lockfile;
-    var job = { script: script, payload: payload, timeout: jobTimeout, niceLevel: niceLevel, lockfile: lockfile };
+    var job = {
+        script: script, payload: payload, timeout: jobTimeout, niceLevel: niceLevel,
+        idleTimeout: idleTimeout, lockfile: lockfile, };
     this._workQueue.push(job, callback);
 }
 
@@ -215,7 +227,9 @@ QwRunner.prototype.createWorkerProcess = function createWorkerProcess( script, j
     // set the qworkerId so the forked worker inherits it
     process.env.NODE_QWORKER = this._nextWorkerId++;
 
-    var worker = this._workerPool.get(script);
+    do {
+        var worker = this._workerPool.get(script);
+    } while (worker && !this.processExists(worker));
     if (worker) {
         process.nextTick(function(){ callback(null, worker) });
         return worker;
@@ -245,6 +259,7 @@ QwRunner.prototype.createWorkerProcess = function createWorkerProcess( script, j
     }
 }
 
+// done with worker, recycle for reuse or discard
 QwRunner.prototype.endWorkerProcess = function endWorkerProcess( worker, callback ) {
     if (worker._kstopped) return callback(null, worker);
     worker._kstopped = true;
@@ -253,6 +268,8 @@ QwRunner.prototype.endWorkerProcess = function endWorkerProcess( worker, callbac
     if (ix >= 0) this._workers.splice(ix, 1);
     // TODO: splice is slow, store undefined and periodically compact the list
 
+// FIXME: if process exited, also remove from workerPool
+
     // TODO: test with processNotExists
     if (!this.processExists(worker)) {
         callback(null, worker);
@@ -260,7 +277,6 @@ QwRunner.prototype.endWorkerProcess = function endWorkerProcess( worker, callbac
     }
 
     if (++worker._useCount < this.maxUseCount) {
-        // TODO: reuse worker, but time it out if inactive too long
         worker._kstopped = false;
         this._workerPool.push(worker._script, worker);
         callback(null, worker);
