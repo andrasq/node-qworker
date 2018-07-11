@@ -355,25 +355,14 @@ QwRunner.prototype.killWorkerProcess = function killWorkerProcess( worker, optio
 
 // return true if the process exists and is ours 
 QwRunner.prototype.processExists = function processExists( proc ) {
-    if (!(proc.pid > 0)) return false;
-
-    try {
-        process.kill(proc.pid, 0);
-        return true;
-    } catch (err) {
-        // if the process is not found it does not exist
-        // if (err.code === 'ESRCH') >= 0) return false;
-        // a process that exists but is not ours is a sign of a bad pid, ignore it
-        // if (err.code === 'EPERM') >= 0) return true;
-        // on all other errors assume not exist
-        return false;
-    }
+    return !this.processNotExists(proc.pid);
 }
 
 // verify that that the process `pid` is not running
 QwRunner.prototype.processNotExists = function processNotExists( pid ) {
-    try { process.kill(+pid, 0); return false }
-    catch (err) { return err.code === 'ESRCH' }
+    if (!(pid > 0)) return true;
+    try { process.kill(+pid, 0); return false }         // no error: exists and ours
+    catch (err) { return err.code === 'ESRCH' }         // EPERM: exists not ours, ESRCH: not exists
 }
 
 // set a job mutex in the filesystem (file containing the lock owner pid)

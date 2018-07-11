@@ -662,8 +662,8 @@ module.exports = {
         'clearLock should not break a held mutex': function(t) {
             fs.writeFileSync('./lock.pid', process.pid);
             t.throws(function(){ runner.clearLock('./lock.pid', process.pid + 1) }, /not our lock/);
-            fs.writeFileSync('./lock.pid', 'theirPid');
-            t.throws(function(){ runner.clearLock('./lock.pid', 'myPid') }, /not our lock/);
+            fs.writeFileSync('./lock.pid', '2');
+            t.throws(function(){ runner.clearLock('./lock.pid', '1') }, /not our lock/);
             t.done();
         },
 
