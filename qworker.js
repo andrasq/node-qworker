@@ -136,20 +136,18 @@ function QwRunner( options ) {
     return this;
 }
 
-///**
-// TODO:
 QwRunner.prototype.close = function close( ) {
 console.log("AR: close running");
     var worker;
-    for (var script in this._workerPool) {
-        while ((worker = this._workerPool.shift(script))) ;
+    var scripts = Object.keys(this._workerPool);        // skip inherited methods
+    for (var i=0; i<scripts.length; i++) {
+        while ((worker = this._workerPool.shift(scripts[i]))) ;
     }
     for (var i=0; i<this._workers.length; i++) {
 console.log("AR: closing running pid", this._workers[i].pid);
         this.endWorkerProcess(this._workers[i], noop, true);
     }
 }
-/**/
 
 // function called by the user to schedule a job
 QwRunner.prototype.run = function run( script, payload, callback ) {
