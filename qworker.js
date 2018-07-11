@@ -142,7 +142,7 @@ QwRunner.prototype.close = function close( ) {
 console.log("AR: close running");
     var worker;
     // TODO: foreach name in workerPool.getNames() {
-    // TODO:   while (worker = workerPool.get(name)) ...
+    // TODO:   while (worker = workerPool.shift(name)) ...
     // TODO: }
     for (var i=0; i<this._workers.length; i++) {
 console.log("AR: closing running pid", this._workers[i].pid);
