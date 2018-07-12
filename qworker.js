@@ -137,14 +137,15 @@ function QwRunner( options ) {
 }
 
 QwRunner.prototype.close = function close( ) {
-console.log("AR: close running");
     var worker;
-    var scripts = Object.keys(this._workerPool);        // skip inherited methods
+    var scripts = this._workerPool.getKeys();
+
     for (var i=0; i<scripts.length; i++) {
-        while ((worker = this._workerPool.shift(scripts[i]))) ;
+        while ((worker = this._workerPool.shift(scripts[i]))) {
+            this.endWorkerProcess(worker, noop, true);
+        }
     }
     for (var i=0; i<this._workers.length; i++) {
-console.log("AR: closing running pid", this._workers[i].pid);
         this.endWorkerProcess(this._workers[i], noop, true);
     }
 }
