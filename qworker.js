@@ -190,7 +190,9 @@ QwRunner.prototype.jobRunner = function jobRunner( job, cb ) {
 
     // when worker is ready to receive messages, send it the job
     // and wait for the job to finish.  The worker is reusable once the job is done.
-    function launchJob( ) {
+    function launchJob( err ) {
+        if (err) return cb(err);
+
         var timeoutTimer;
         var cbCalled = false;
         var cbOnce = function cbOnce( err, ret ) {
@@ -272,14 +274,20 @@ QwRunner.prototype.createWorkerProcess = function createWorkerProcess( script, j
         this._workers.push(worker);
 
         // if process dies or is killed, clean up
-        var self = this;
-        worker.once('exit', function() { worker._stopped = true; self.endWorkerProcess(worker, noop) });
+        var self = this, onExitCleanup, gotStartedMessage = false;
+        worker.once('exit', onExitCleanup = function(code, signal) {
+            worker._stopped = true;
+            self.endWorkerProcess(worker, noop);
+            if (!gotStartedMessage) callback(new Error('process exited with ' + code + ' / ' + signal));
+        });
 
+        // call callback once worker is running and processing messages
         worker.once('message', function onMessage(message) {
-            // call callback once worker is running and processing messages
-            if (!job.niceLevel) return callback(null, worker);
+            gotStartedMessage = true;
+            worker.removeListener('exit', onExitCleanup);
 
-            child_process.exec("renice " + +(job.niceLevel) + " " + pid + " #&& ps -l -p " + pid, function(err, stdout) {
+            if (!job.niceLevel) return callback(null, worker);
+            child_process.exec("renice " + +(job.niceLevel) + " " + pid + " 2>&1 #&& ps -l -p " + pid, function(err, stdout, stderr) {
                 if (err) console.log("%s -- qworker: failed to renice process %d:", new Date().toISOString(), pid, err);
                 callback(null, worker);
             });
