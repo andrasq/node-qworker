@@ -367,12 +367,13 @@ module.exports = {
 
         'createWorkerProcess should return renice error': function(t) {
             var runner2 = qworker({ niceLevel: 'NaN', scriptDir: __dirname + '/scripts' });
-            var spy = t.stub(process.stdout, 'write');
+            var spy = t.stub(process.stdout, 'write').configure('saveLimit', 10);
             var worker = runner2.run('sleep', { ms: 10 }, function(err, ret) {
                 spy.restore();
+                var output = concatOutputLines(spy.args, 0);
                 t.ifError(err);
                 t.ok(spy.called);
-                t.contains(spy.args[0][0], 'failed to renice process ' + ret.pid);
+                t.contains(output, 'failed to renice process ' + ret.pid);
                 t.done();
             })
         },
@@ -504,7 +505,7 @@ module.exports = {
                 setTimeout(function() {
                     t.ok(runner2.processNotExists(ret));
                     t.done();
-                }, 10);
+                }, 20);
             })
         },
 
