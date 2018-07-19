@@ -224,13 +224,14 @@ QwRunner.prototype.jobRunner = function jobRunner( job, cb ) {
         })
 
         var returnOnExit;
-        worker.once('exit', returnOnExit = function(code) {
-            cbOnce(new Error("worker exited: " + code));
+        worker.once('exit', returnOnExit = function(code, signal) {
+            cbOnce(new Error("worker died: " + code + ' / ' + signal));
         })
 
         var returnOnDone;
         worker.on('message', returnOnDone = function(workerMessage) {
             if (workerMessage && workerMessage.qwType === 'done') {
+console.log("AR: worker %d is done", worker.pid);
                 // processing finished, returns error or result
                 // TODO: allow per-worker job concurrency > 1
                 worker.removeListener('exit', returnOnExit);

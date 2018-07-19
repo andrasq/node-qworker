@@ -247,13 +247,13 @@ module.exports = {
             runner2.run('pid', {}, function(err, pidPid) {
                 runner2.run('sleep', { ms: 100 }, function(err, sleepInfo) {
                     t.ok(spy.called);
-                    t.equal(spy.callCount, 5);
-                    t.equal(spy.args[0][2], undefined); // pid call done, recycle process
-                    t.equal(spy.args[1][2], true);      // kill idle recycled pid process (_workerPool)
-                    t.equal(spy.args[2][2], true);      // kill sleep process (_workers)
-                    t.equal(spy.args[3][2], undefined); // pid process 'exit' event
-                    t.equal(spy.args[4][2], undefined); // sleep process 'exit' event
-                    t.done();
+                    setTimeout(function() {
+                        t.equal(spy.callCount, 3);
+                        t.equal(spy.args[0][2], undefined); // pid call done, recycle process
+                        t.equal(spy.args[1][2], true);      // kill idle recycled pid process (_workerPool)
+                        t.equal(spy.args[2][2], true);      // kill sleep process (_workers)
+                        t.done();
+                    }, 40);
                 })
                 setTimeout(function() {
                     runner2.close();
