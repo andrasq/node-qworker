@@ -248,10 +248,12 @@ module.exports = {
                 runner2.run('sleep', { ms: 100 }, function(err, sleepInfo) {
                     t.ok(spy.called);
                     setTimeout(function() {
-                        t.equal(spy.callCount, 3);
+                        t.equal(spy.callCount, 5);
                         t.equal(spy.args[0][2], undefined); // pid call done, recycle process
-                        t.equal(spy.args[1][2], true);      // kill idle recycled pid process (_workerPool)
-                        t.equal(spy.args[2][2], true);      // kill sleep process (_workers)
+                        t.equal(spy.args[1][2], true);      // close idle recycled pid process (_workerPool)
+                        t.equal(spy.args[2][2], true);      // close running sleep process (_workers)
+                        t.equal(spy.args[3][2], undefined); // pid process 'exit' event
+                        t.equal(spy.args[4][2], undefined); // sleep process 'exit' event
                         t.done();
                     }, 40);
                 })
@@ -483,7 +485,7 @@ module.exports = {
                 runner.run(blockingScript, { ms: 5000 }, function(err, worker2) {
                     var doneTime = Date.now();
                     t.ok(err);
-                    t.contains(err.message, 'worker exited');
+                    t.contains(err.message, 'worker died');
                     t.ok(doneTime - startTime < 1000);
                     t.done();
                 })

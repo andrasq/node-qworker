@@ -231,7 +231,6 @@ QwRunner.prototype.jobRunner = function jobRunner( job, cb ) {
         var returnOnDone;
         worker.on('message', returnOnDone = function(workerMessage) {
             if (workerMessage && workerMessage.qwType === 'done') {
-console.log("AR: worker %d is done", worker.pid);
                 // processing finished, returns error or result
                 // TODO: allow per-worker job concurrency > 1
                 worker.removeListener('exit', returnOnExit);
@@ -285,7 +284,6 @@ QwRunner.prototype.createWorkerProcess = function createWorkerProcess( script, j
         // call callback once worker is running and processing messages
         worker.once('message', function onMessage(message) {
             gotStartedMessage = true;
-            worker.removeListener('exit', onExitCleanup);
 
             if (!job.niceLevel) return callback(null, worker);
             child_process.exec("renice " + +(job.niceLevel) + " " + pid + " 2>&1 #&& ps -l -p " + pid, function(err, stdout, stderr) {
