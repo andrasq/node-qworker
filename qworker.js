@@ -138,10 +138,10 @@ function QwRunner( options ) {
 
 QwRunner.prototype.close = function close( ) {
     var worker;
-    var scripts = this._workerPool.getKeys();
+    var scripts = Object.keys(this._workerPool);
 
     for (var i=0; i<scripts.length; i++) {
-        while ((worker = this._workerPool.shift(scripts[i]))) {
+        while ((worker = this.mvRemove(this._workerPool, scripts[i], 0))) {
             this.endWorkerProcess(worker, noop, true);
         }
     }
