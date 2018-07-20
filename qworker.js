@@ -87,27 +87,18 @@ function runScriptJob( job, callback ) {
     }
 }
 
-// quick-and-easy multi-value cache
-function MvCache( ) {
-    this.store = {};
-}
-MvCache.prototype.push = function push( key, value ) {
-    this.store[key] ? this.store[key].push(value) : (this.store[key] = new Array(value));
-}
-MvCache.prototype.shift = function get( key ) {
-    if (!this.store[key]) return undefined;
-    var ret = this.store[key].shift();
-    if (!this.store[key].length) delete this.store[key];
+// quick-and-easy multi-value hash (non-numeric values only)
+// Store holds lists of values by key, empty lists are deleted.
+// TODO: add these as pool methods on the runner
+function mvPush( store, key, value ) {
+    return store[key] ? store[key].push(value) : ((store[key] = new Array(value)), value) }
+function mvDelete( store, key, value ) {
+    mvRemove(store, key, store[key] && store[key].indexOf(value)) }
+function mvRemove( store, key, ix ) {
+    if (ix < 0 || !store[key]) return undefined;
+    var list = store[key], ret = ix ? list.splice(ix, 1)[0] : list.shift();
+    if (!list.length) delete store[key];
     return ret;
-}
-MvCache.prototype.delete = function delete_( key, value ) {
-    if (!this.store[key]) return;
-    var ix = this.store[key] && this.store[key].indexOf(value);
-    if (ix >= 0) this.store[key].splice(ix, 1);
-    if (!this.store[key].length) delete this.store[key];
-}
-MvCache.prototype.getKeys = function getKeys( ) {
-    return Object.keys(this.store);
 }
 
 function QwRunner( options ) {
@@ -128,7 +119,7 @@ function QwRunner( options ) {
     }
     this._workQueue = quickq(jobRunner, this.maxWorkers);
     this._workers = new Array();
-    this._workerPool = new MvCache();
+    this._workerPool = {};
     this._nextWorkerId = 1;
 
     if (this.scriptDir[0] !== '/') this.scriptDir = process.cwd() + '/' + this.scriptDir;
@@ -250,7 +241,7 @@ QwRunner.prototype.createWorkerProcess = function createWorkerProcess( script, j
     process.env.NODE_QWORKER = this._nextWorkerId++;
 
     do {
-        var worker = this._workerPool.shift(script);
+        var worker = this.mvRemove(this._workerPool, script, 0);
     } while (worker && !this.processExists(worker));
     if (worker) {
         // return before callback, to simplify unit tests
@@ -293,7 +284,7 @@ QwRunner.prototype.endWorkerProcess = function endWorkerProcess( worker, callbac
     if (ix >= 0) this._workers.splice(ix, 1);
     // TODO: splice is slow, store undefined and periodically compact the list
 
-    this._workerPool.delete(worker._script, worker);
+    this.mvDelete(this._workerPool, worker._script, worker);
 
     // only process the worker once
     if (worker._kstopped) return callback(null, worker);
@@ -308,7 +299,7 @@ QwRunner.prototype.endWorkerProcess = function endWorkerProcess( worker, callbac
     // if the process is still usable, cache it for reuse
     if (++worker._useCount < this.maxUseCount) {
         worker._kstopped = false;
-        this._workerPool.push(worker._script, worker);
+        this.mvPush(this._workerPool, worker._script, worker);
         callback(null, worker);
     }
     else {
@@ -402,7 +393,9 @@ QwRunner.prototype.clearLock = function clearLock( lockfile, ownerPid ) {
 
 // expose on prototype to tests
 QwRunner.prototype.sendTo = sendTo;
-
+QwRunner.prototype.mvPush = mvPush;
+QwRunner.prototype.mvDelete = mvDelete;
+QwRunner.prototype.mvRemove = mvRemove;
 
 // non-throwing send, ignores send errors
 function sendTo( proc, message ) {
@@ -417,3 +410,6 @@ function sendTo( proc, message ) {
 }
 
 function noop() {}
+
+QwRunner.prototype = toStruct(QwRunner.prototype)
+function toStruct( proto ) { return toStruct.prototype = proto; }
