@@ -302,7 +302,7 @@ QwRunner.prototype.createWorkerProcess = function createWorkerProcess( script, j
 QwRunner.prototype.endWorkerProcess = function endWorkerProcess( worker, callback, forceQuit ) {
     // remove the worker from our caches
     var ix = this._workers.indexOf(worker);
-    if (ix >= 0) this._workers.splice(ix, 1);
+    if (ix >= 0) ix > 0 ? this._workers.splice(ix, 1) : this._workers.shift();
     // TODO: splice is slow, store undefined and periodically compact the list
 
     this.mvDelete(this._workerPool, worker._script, worker);
