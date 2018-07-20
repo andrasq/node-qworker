@@ -235,6 +235,33 @@ module.exports = {
                 t.done();
             })
         },
+
+        'close should terminate all worker processes': function(t) {
+            var runner2 = qworker({
+                scriptDir: __dirname + '/scripts',
+                maxUseCount: 10,
+                workerExitTimeout: 200,
+            });
+
+            var spy = t.spy(runner2, 'endWorkerProcess');
+            runner2.run('pid', {}, function(err, pidPid) {
+                runner2.run('sleep', { ms: 100 }, function(err, sleepInfo) {
+                    t.ok(spy.called);
+                    setTimeout(function() {
+                        t.equal(spy.callCount, 5);
+                        t.equal(spy.args[0][2], undefined); // pid call done, recycle process
+                        t.equal(spy.args[1][2], true);      // close idle recycled pid process (_workerPool)
+                        t.equal(spy.args[2][2], true);      // close running sleep process (_workers)
+                        t.equal(spy.args[3][2], undefined); // pid process 'exit' event
+                        t.equal(spy.args[4][2], undefined); // sleep process 'exit' event
+                        t.done();
+                    }, 40);
+                })
+                setTimeout(function() {
+                    runner2.close();
+                }, 80);
+            })
+        },
     },
 
     'errors': {
@@ -342,12 +369,13 @@ module.exports = {
 
         'createWorkerProcess should return renice error': function(t) {
             var runner2 = qworker({ niceLevel: 'NaN', scriptDir: __dirname + '/scripts' });
-            var spy = t.stub(process.stdout, 'write');
+            var spy = t.stub(process.stdout, 'write').configure('saveLimit', 10);
             var worker = runner2.run('sleep', { ms: 10 }, function(err, ret) {
                 spy.restore();
+                var output = concatOutputLines(spy.args, 0);
                 t.ifError(err);
                 t.ok(spy.called);
-                t.contains(spy.args[0][0], 'failed to renice process ' + ret.pid);
+                t.contains(output, 'failed to renice process ' + ret.pid);
                 t.done();
             })
         },
@@ -457,7 +485,7 @@ module.exports = {
                 runner.run(blockingScript, { ms: 5000 }, function(err, worker2) {
                     var doneTime = Date.now();
                     t.ok(err);
-                    t.contains(err.message, 'worker exited');
+                    t.contains(err.message, 'worker died');
                     t.ok(doneTime - startTime < 1000);
                     t.done();
                 })
@@ -479,8 +507,12 @@ module.exports = {
                 setTimeout(function() {
                     t.ok(runner2.processNotExists(ret));
                     t.done();
-                }, 10);
+                }, 20);
             })
+        },
+
+        'endWorkerProcess should forceQuit': function(t) {
+            t.skip();
         },
 
         'sendTo should return false on error': function(t) {
