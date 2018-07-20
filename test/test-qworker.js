@@ -288,12 +288,12 @@ module.exports = {
             var runner2 = qworker({ maxUseCount: 10, scriptDir: __dirname + '/scripts' });
             runner2.run('pid', {}, function(err, pid) {
                 t.ok(pid > 0);
-                t.deepEqual(runner2._workerPool.getKeys(), [ __dirname + '/scripts/pid']);
+                t.deepEqual(Object.keys(runner2._workerPool), [ __dirname + '/scripts/pid']);
                 process.kill(pid, 'SIGTERM');
                 setTimeout(function() {
                     t.ok(!runner2.processExists(pid));
                     t.equal(runner2._workers.length, 0);
-                    t.equal(runner2._workerPool.getKeys().length, 0);
+                    t.equal(Object.keys(runner2._workerPool).length, 0);
                     t.done();
                 }, 100);
             })
@@ -319,7 +319,7 @@ module.exports = {
             var stub = t.stub(runner, 'processExists', function(worker){ return worker ? true : false });
             runner.endWorkerProcess(worker1, function(err, endedWorker) {
                 spy.restore();
-                t.equal(runner._workerPool.store['scriptName'].length, 1);
+                t.equal(runner._workerPool['scriptName'].length, 1);
                 var worker2 = runner.createWorkerProcess('scriptName', {}, noop);
                 stub.restore();
                 t.equal(worker2, worker1);
@@ -493,16 +493,16 @@ module.exports = {
             var runner2 = qworker();
             var pool = runner2._workerPool;
 
-            t.strictEqual(pool.store.a, undefined);
-            pool.push('a', 'x');
-            t.ok(Array.isArray(pool.store.a));
-            t.deepEqual(pool.store.a, ['x']);
-            pool.push('a', 'y');
-            t.deepEqual(pool.store.a, ['x', 'y']);
+            t.strictEqual(pool.a, undefined);
+            runner2.mvPush(pool, 'a', 'x');
+            t.ok(Array.isArray(pool.a));
+            t.deepEqual(pool.a, ['x']);
+            runner2.mvPush(pool, 'a', 'y');
+            t.deepEqual(pool.a, ['x', 'y']);
 
-            pool.push('b', 'z');
-            t.deepEqual(pool.store.a, ['x', 'y']);
-            t.deepEqual(pool.store.b, ['z']);
+            runner2.mvPush(pool, 'b', 'z');
+            t.deepEqual(pool.a, ['x', 'y']);
+            t.deepEqual(pool.b, ['z']);
 
             t.done();
         },
@@ -511,20 +511,20 @@ module.exports = {
             var runner2 = qworker();
             var pool = runner2._workerPool;
 
-            t.strictEqual(pool.shift('a'), undefined);
+            t.strictEqual(runner2.mvRemove(pool, 'a', 0), undefined);
 
-            pool.push('a', 'x');
-            pool.shift('b');
-            t.strictEqual(pool.shift('a'), 'x');
-            t.strictEqual(pool.shift('a'), undefined);
-            t.strictEqual(pool.store.a, undefined);
+            runner2.mvPush(pool, 'a', 'x');
+            runner2.mvRemove(pool, 'b', 0);
+            t.strictEqual(runner2.mvRemove(pool, 'a', 0), 'x');
+            t.strictEqual(runner2.mvRemove(pool, 'a', 0), undefined);
+            t.strictEqual(pool.a, undefined);
 
-            pool.push('a', 'y');
-            pool.push('a', 'z');
-            t.strictEqual(pool.shift('a'), 'y');
-            t.strictEqual(pool.shift('a'), 'z');
-            t.strictEqual(pool.shift('a'), undefined);
-            t.strictEqual(pool.store.a, undefined);
+            runner2.mvPush(pool, 'a', 'y');
+            runner2.mvPush(pool, 'a', 'z');
+            t.strictEqual(runner2.mvRemove(pool, 'a', 0), 'y');
+            t.strictEqual(runner2.mvRemove(pool, 'a', 0), 'z');
+            t.strictEqual(runner2.mvRemove(pool, 'a', 0), undefined);
+            t.strictEqual(pool.a, undefined);
 
             t.done();
         },
@@ -533,26 +533,26 @@ module.exports = {
             var runner2 = qworker();
             var pool = runner2._workerPool;
 
-            pool.delete('a', 'x');
-            t.strictEqual(pool.store.a, undefined);
+            runner2.mvDelete(pool, 'a', 'x');
+            t.strictEqual(pool.a, undefined);
 
-            pool.push('a', 'x');
-            pool.delete('a', 'y');
-            t.deepEqual(pool.store.a, ['x']);
-            pool.delete('b', 'x');
-            t.deepEqual(pool.store.a, ['x']);
-            pool.delete('a', 'x');
-            t.strictEqual(pool.store.a, undefined);
+            runner2.mvPush(pool, 'a', 'x');
+            runner2.mvDelete(pool, 'a', 'y');
+            t.deepEqual(pool.a, ['x']);
+            runner2.mvDelete(pool, 'b', 'x');
+            t.deepEqual(pool.a, ['x']);
+            runner2.mvDelete(pool, 'a', 'x');
+            t.strictEqual(pool.a, undefined);
 
-            pool.push('a', 'x');
-            pool.push('a', 'y');
-            pool.push('a', 'z');
-            pool.delete('a', 'y');
-            t.deepEqual(pool.store.a, ['x', 'z']);
-            pool.delete('a', 'z');
-            t.deepEqual(pool.store.a, ['x']);
-            pool.delete('a', 'x');
-            t.strictEqual(pool.store.a, undefined);
+            runner2.mvPush(pool, 'a', 'x');
+            runner2.mvPush(pool, 'a', 'y');
+            runner2.mvPush(pool, 'a', 'z');
+            runner2.mvDelete(pool, 'a', 'y');
+            t.deepEqual(pool.a, ['x', 'z']);
+            runner2.mvDelete(pool, 'a', 'z');
+            t.deepEqual(pool.a, ['x']);
+            runner2.mvDelete(pool, 'a', 'x');
+            t.strictEqual(pool.a, undefined);
 
             t.done();
         },
@@ -561,14 +561,14 @@ module.exports = {
             var runner2 = qworker();
             var pool = runner2._workerPool;
 
-            t.deepEqual(pool.getKeys(), []);
+            t.deepEqual(Object.keys(pool), []);
 
-            pool.push('a', 'x');
-            t.deepEqual(pool.getKeys(), ['a']);
-            pool.push('b', 'y');
-            t.deepEqual(pool.getKeys(), ['a', 'b']);
-            pool.delete('a', 'x');
-            t.deepEqual(pool.getKeys(), ['b']);
+            runner2.mvPush(pool, 'a', 'x');
+            t.deepEqual(Object.keys(pool), ['a']);
+            runner2.mvPush(pool, 'b', 'y');
+            t.deepEqual(Object.keys(pool), ['a', 'b']);
+            runner2.mvDelete(pool, 'a', 'x');
+            t.deepEqual(Object.keys(pool), ['b']);
 
             t.done();
         },
@@ -689,4 +689,13 @@ function concatOutputLines( spyArgs, index ) {
     var output = '';
     for (var i=0; i<spyArgs.length; i++) output += spyArgs[i][index];
     return output;
+}
+
+function wrapPool( runner, pool ) {
+    return {
+        store: pool,
+        push: function(k, v) { runner.mvPush(this.store, k, v) },
+        shift: function(k) { runner.mvRemove(this.store, k, 0) },
+        delete: function(k, v) { runner.mvDelete(this.store, k, v) },
+    }
 }
