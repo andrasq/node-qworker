@@ -14,7 +14,7 @@ var qworker = require('../');
 var runner = qworker({
     scriptDir: __dirname + '/scripts',
     maxUseCount: 2,
-    workerExitTimeout: 200,
+    exitTimeout: 200,
 });
 
 module.exports = {
@@ -240,7 +240,7 @@ module.exports = {
             var runner2 = qworker({
                 scriptDir: __dirname + '/scripts',
                 maxUseCount: 10,
-                workerExitTimeout: 200,
+                exitTimeout: 200,
             });
 
             var spy = t.spy(runner2, 'endWorkerProcess');

@@ -109,7 +109,7 @@ function QwRunner( options ) {
     this.maxWorkers = options.maxWorkers || 2;                  // num script runners to allow in parallel
     this.jobTimeout = options.timeout || 0;                     // ms before script must be done, 0 means unlimited
     this.scriptDir = options.scriptDir || process.cwd();        // directory containing the scripts to run
-    this.exitTimeout = options.workerExitTimeout || 2000;       // ms before runner kills the worker process
+    this.exitTimeout = options.exitTimeout || 2000;             // ms before runner kills the worker process
     this.maxUseCount = options.maxUseCount || 1;                // num scripts a worker may run before being retired
     this.niceLevel = options.niceLevel || 0;                    // unix system priority: 19 is lowest, -19 highest
     this.idleTimeout = options.idleTimeout || 0;                // worker to exit after ms with no work to do
@@ -136,7 +136,10 @@ function QwRunner( options ) {
     return this;
 }
 
-QwRunner.prototype.close = function close( ) {
+QwRunner.prototype.close = function close( options ) {
+    options = options || {};
+    this.exitTimeout = options.exitTimeout || this.exitTimeout;
+
     var worker;
     var scripts = Object.keys(this._workerPool);
 

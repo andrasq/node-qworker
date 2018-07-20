@@ -45,6 +45,8 @@ Options:
   Default 1, use a new process for each script.
 - `niceLevel` - worker process unix priority level, 19 lowest, -19 highest, default 0.
 - `idleTimeout` - have worker processes exit after a period of inactivity, in milliseconds
+- `exitTimeout` - how many milliseconds to allow for a worker to to exit when told to stop.
+  Default 2000 ms.
 
 ### runner.run( script, [payload], callback( err, ret ) )
 
@@ -87,9 +89,19 @@ Create a new job runner with the combined settings of both the existing runner a
 new options.  Options are as for `qworker()`.  Currently, both the parent and the new
 runner share worker queues.
 
+### runner.close( options )
+
+Shut down all worker processes.  Each worker will be sent a 'stop' message, and if still
+running 2 seconds later (`exitTimeout`), killed with SIGKILL.
+
+Options:
+- `exitTimeout` - how many milliseconds to allow for a worker to exit when told to stop.
+  If specified, this value overrides the `exitTimeout` specified in the constructor.
+
 
 ## ChangeLog
 
+- 0.7.0 - `close` method, replace MvCache with mv hash functions, document `exitTimeout`
 - 0.6.1 - `idleTimeout` option, use own MvCache, clean up after killed processes
 - 0.5.0 - simplify package layout, fix duplicate 'done' callbacks, `lockfile` option to set a job mutex
 - 0.4.0 - `niceLevel` job runner option, `runWithOptions` method
