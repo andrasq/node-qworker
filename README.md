@@ -22,7 +22,7 @@ Worker processes to run nodejs scripts.  Each script is run in a separate child 
     })
 
 
-    # file scripts/ping.js:
+    # file ./scripts/ping.js:
     module.exports = function ping( payload, callback ) {
         callback(null, payload);
     }
