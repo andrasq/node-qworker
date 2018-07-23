@@ -1,6 +1,6 @@
 {
   "name": "qworker",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "main": "qworker.js",
   "description": "quick work script runner",
   "license": "Apache-2.0",

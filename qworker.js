@@ -261,7 +261,7 @@ QwRunner.prototype.createWorkerProcess = function createWorkerProcess( script, j
 
     do {
         var worker = this.mvRemove(this._workerPool, script, 0);
-    } while (worker && !this.processExists(worker));
+    } while (worker && this.processNotExists(worker.pid));
     if (worker) {
         // return before callback, to simplify unit tests
         process.nextTick(function(){ callback(null, worker) });
@@ -314,8 +314,7 @@ QwRunner.prototype.endWorkerProcess = function endWorkerProcess( worker, callbac
     if (worker._kstopped) return callback(null, worker);
     worker._kstopped = true;
 
-    // TODO: test with processNotExists
-    if (!this.processExists(worker)) {
+    if (this.processNotExists(worker.pid)) {
         callback(null, worker);
         return;
     }
@@ -351,11 +350,6 @@ QwRunner.prototype.killWorkerProcess = function killWorkerProcess( worker, optio
     })
     try { worker.kill('SIGKILL') }
     catch (err) { }
-}
-
-// return true if the process exists and is ours 
-QwRunner.prototype.processExists = function processExists( proc ) {
-    return !this.processNotExists(proc.pid);
 }
 
 // verify that that the process `pid` is not running
