@@ -261,7 +261,7 @@ QwRunner.prototype.createWorkerProcess = function createWorkerProcess( script, j
 
     do {
         var worker = this.mvRemove(this._workerPool, script, 0);
-    } while (worker && !this.processExists(worker));
+    } while (worker && this.processNotExists(worker.pid));
     if (worker) {
         // return before callback, to simplify unit tests
         process.nextTick(function(){ callback(null, worker) });
@@ -314,8 +314,7 @@ QwRunner.prototype.endWorkerProcess = function endWorkerProcess( worker, callbac
     if (worker._kstopped) return callback(null, worker);
     worker._kstopped = true;
 
-    // TODO: test with processNotExists
-    if (!this.processExists(worker)) {
+    if (this.processNotExists(worker.pid)) {
         callback(null, worker);
         return;
     }
@@ -353,27 +352,11 @@ QwRunner.prototype.killWorkerProcess = function killWorkerProcess( worker, optio
     catch (err) { }
 }
 
-// return true if the process exists and is ours 
-QwRunner.prototype.processExists = function processExists( proc ) {
-    if (!(proc.pid > 0)) return false;
-
-    try {
-        process.kill(proc.pid, 0);
-        return true;
-    } catch (err) {
-        // if the process is not found it does not exist
-        // if (err.code === 'ESRCH') >= 0) return false;
-        // a process that exists but is not ours is a sign of a bad pid, ignore it
-        // if (err.code === 'EPERM') >= 0) return true;
-        // on all other errors assume not exist
-        return false;
-    }
-}
-
 // verify that that the process `pid` is not running
 QwRunner.prototype.processNotExists = function processNotExists( pid ) {
-    try { process.kill(+pid, 0); return false }
-    catch (err) { return err.code === 'ESRCH' }
+    if (!(pid > 0)) return true;
+    try { process.kill(+pid, 0); return false }         // no error: exists and ours
+    catch (err) { return err.code === 'ESRCH' }         // EPERM: exists not ours, ESRCH: not exists
 }
 
 // set a job mutex in the filesystem (file containing the lock owner pid)

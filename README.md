@@ -101,6 +101,7 @@ Options:
 
 ## ChangeLog
 
+- 0.7.1 - replace processExists with processNotExists
 - 0.7.0 - `close` method, replace MvCache with mv hash functions, document `exitTimeout`
 - 0.6.1 - `idleTimeout` option, use own MvCache, clean up after killed processes
 - 0.5.0 - simplify package layout, fix duplicate 'done' callbacks, `lockfile` option to set a job mutex

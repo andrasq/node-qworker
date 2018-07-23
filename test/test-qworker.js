@@ -318,7 +318,7 @@ module.exports = {
                 t.deepEqual(Object.keys(runner2._workerPool), [ __dirname + '/scripts/pid']);
                 process.kill(pid, 'SIGTERM');
                 setTimeout(function() {
-                    t.ok(!runner2.processExists(pid));
+                    t.ok(runner2.processNotExists(pid));
                     t.equal(runner2._workers.length, 0);
                     t.equal(Object.keys(runner2._workerPool).length, 0);
                     t.done();
@@ -343,7 +343,7 @@ module.exports = {
             var worker = new MockWorker();
             var spy = t.stub(child_process, 'fork', function(){ return worker });
             var worker1 = runner.createWorkerProcess('scriptName', {}, noop);
-            var stub = t.stub(runner, 'processExists', function(worker){ return worker ? true : false });
+            var stub = t.stub(runner, 'processNotExists', function(worker){ return false });
             runner.endWorkerProcess(worker1, function(err, endedWorker) {
                 spy.restore();
                 t.equal(runner._workerPool['scriptName'].length, 1);
@@ -400,7 +400,7 @@ module.exports = {
                     // the worker process either exited voluntarily or was killed.
                     // Since the worker normally waits forever for more jobs to run,
                     // it has to either be killed or be told to 'stop'.
-                    t.ok(!runner.processExists(worker));
+                    t.ok(runner.processNotExists(worker.pid));
                     t.strictEqual(worker.exitCode, 0);
                     t.strictEqual(worker.killed, false);
                     t.done();
@@ -476,8 +476,7 @@ module.exports = {
         'endWorkerProcess should kill the process if it takes too long to exit': function(t) {
             var blockingScript = __dirname + '/scripts/block';
             var worker = runner.createWorkerProcess(blockingScript, {}, noop);
-            // arrange to use this worker process
-            t.stubOnce(runner, 'processExists', function(){ return true });
+            // make available this worker process for the test by recycling it
             runner.endWorkerProcess(worker, function(err) {
                 t.ifError(err);
                 var startTime = Date.now();
@@ -512,7 +511,17 @@ module.exports = {
         },
 
         'endWorkerProcess should forceQuit': function(t) {
-            t.skip();
+            var runner2 = qworker({ maxUseCount: 10, scriptDir: __dirname + '/scripts' });
+            var worker = runner2.createWorkerProcess('pid', {}, noop);
+            runner2.endWorkerProcess(worker, function(err) {
+                // without forceQuit recycles the worker
+                t.equal(runner2._workerPool['pid'].length, 1);
+                runner2.endWorkerProcess(worker, function(err) {
+                    // with forceQuit terminates the worker
+                    t.equal(runner2._workerPool['pid'], undefined);
+                    t.done();
+                }, true);
+            });
         },
 
         'sendTo should return false on error': function(t) {
@@ -662,8 +671,8 @@ module.exports = {
         'clearLock should not break a held mutex': function(t) {
             fs.writeFileSync('./lock.pid', process.pid);
             t.throws(function(){ runner.clearLock('./lock.pid', process.pid + 1) }, /not our lock/);
-            fs.writeFileSync('./lock.pid', 'theirPid');
-            t.throws(function(){ runner.clearLock('./lock.pid', 'myPid') }, /not our lock/);
+            fs.writeFileSync('./lock.pid', '1');
+            t.throws(function(){ runner.clearLock('./lock.pid', '2') }, /not our lock/);
             t.done();
         },
 
@@ -679,7 +688,7 @@ module.exports = {
             t.done();
         },
 
-        'clearLock should tolerate a forcibly altered lockfile': function(t) {
+        'clearLock should tolerate a forcibly broken lockfile': function(t) {
             var spy = t.spy(process.stdout, 'write');
             runner.runWithOptions('sleep', { lockfile: './sleep.pid' }, { ms: 100 }, function(err, info) {
                 fs.unlinkSync('./sleep.pid');
