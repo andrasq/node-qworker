@@ -671,8 +671,8 @@ module.exports = {
         'clearLock should not break a held mutex': function(t) {
             fs.writeFileSync('./lock.pid', process.pid);
             t.throws(function(){ runner.clearLock('./lock.pid', process.pid + 1) }, /not our lock/);
-            fs.writeFileSync('./lock.pid', '2');
-            t.throws(function(){ runner.clearLock('./lock.pid', '1') }, /not our lock/);
+            fs.writeFileSync('./lock.pid', '1');
+            t.throws(function(){ runner.clearLock('./lock.pid', '2') }, /not our lock/);
             t.done();
         },
 
@@ -688,7 +688,7 @@ module.exports = {
             t.done();
         },
 
-        'clearLock should tolerate a forcibly altered lockfile': function(t) {
+        'clearLock should tolerate a forcibly broken lockfile': function(t) {
             var spy = t.spy(process.stdout, 'write');
             runner.runWithOptions('sleep', { lockfile: './sleep.pid' }, { ms: 100 }, function(err, info) {
                 fs.unlinkSync('./sleep.pid');
