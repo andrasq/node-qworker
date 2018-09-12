@@ -87,6 +87,14 @@ function runScriptJob( job, callback ) {
     try {
         // if reusing workers for different scripts, periodically disrequire(job.script)
         // see the `disrequire` npm package
+
+        // TODO: only require once, and throw if global[k] already set
+        if (job.require) {
+            for (var k in job.require) {
+                global[k] = require(job.require[k]);
+            }
+        }
+
         var runner = require(job.script);
         runner(job.payload, callback);
     }
@@ -121,6 +129,7 @@ function QwRunner( options ) {
     this.maxUseCount = options.maxUseCount || 1;                // num scripts a worker may run before being retired
     this.niceLevel = options.niceLevel || 0;                    // unix system priority: 19 is lowest, -19 highest
     this.idleTimeout = options.idleTimeout || 0;                // worker to exit after ms with no work to do
+    this.require = options.require || null;                     // packages to preload into global[]
 
     function jobRunner( job, cb ) {
         self.jobRunner(job, cb);
@@ -181,9 +190,10 @@ QwRunner.prototype.runWithOptions = function runWithOptions( script, options, pa
     var niceLevel = options.niceLevel || this.niceLevel;
     var idleTimeout = options.idleTimeout || this.idleTimeout;
     var lockfile = options.lockfile;
+    var requirePackages = options.require || this.require;
     var job = {
         script: script, payload: payload, timeout: jobTimeout, niceLevel: niceLevel,
-        idleTimeout: idleTimeout, lockfile: lockfile, };
+        idleTimeout: idleTimeout, lockfile: lockfile, require: requirePackages, };
     this._workQueue.push(job, callback);
 }
 

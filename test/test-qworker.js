@@ -236,6 +236,19 @@ module.exports = {
             })
         },
 
+        'runWithOptions should preload packages': function(t) {
+            var runner2 = qworker({ scriptDir: __dirname + '/scripts', require: { dns: 'dns' }, maxUseCount: 1 });
+            runner2.runWithOptions('globals', {}, function(err, ret1) {
+                t.ifError(err);
+                t.contains(ret1, 'dns');
+                runner2.runWithOptions('globals', { require: { os: 'os' } }, function(err, ret2) {
+                    t.ifError(err);
+                    t.contains(ret2, 'os');
+                    t.done();
+                })
+            })
+        },
+
         'close should terminate all worker processes': function(t) {
             var runner2 = qworker({
                 scriptDir: __dirname + '/scripts',
