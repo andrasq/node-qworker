@@ -580,8 +580,14 @@ module.exports = {
             });
         },
 
-        'sendTo should return false on error': function(t) {
+        'sendTo should return false if not connected': function(t) {
             var ret = runner.sendTo({}, { qwType: 'test' });
+            t.strictEqual(ret, false);
+            t.done();
+        },
+
+        'sendTo should return false if process.send throws': function(t) {
+            var ret = runner.sendTo({ connected: true }, { qwType: 'test' });
             t.strictEqual(ret, false);
             t.done();
         },
