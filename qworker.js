@@ -435,7 +435,10 @@ QwRunner.prototype.mvRemove = mvRemove;
 // non-throwing send, ignores send errors
 function sendTo( proc, message ) {
     try {
-        proc.send(message);
+        // NOTE: node-v9 and node-v10 log an ERR_IPC_CHANNEL_CLOSED message
+        // to the console, because the message is sent on nextTick
+        // Test `worker.connected` to not send if connection is closed.
+        if (proc.connected) proc.send(message); else return false;
         return true;
     }
     catch (err) {
