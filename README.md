@@ -109,7 +109,8 @@ Options:
 
 ## ChangeLog
 
-- 0.8.0 - `require` job option, `eval` job option
+- 0.8.1 - only `sendTo` if connected
+- 0.8.0 - `require` job option, `eval` script option
 - 0.7.1 - replace processExists with processNotExists
 - 0.7.0 - `close` method, replace MvCache with mv hash functions, document `exitTimeout`
 - 0.6.1 - `idleTimeout` option, use own MvCache, clean up after killed processes
