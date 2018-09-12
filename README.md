@@ -48,7 +48,7 @@ Options:
 - `exitTimeout` - how many milliseconds to allow for a worker to to exit when told to stop.
   Default 2000 ms.
 - `require` - hash of name-path pairs of packages to load for the script.
-  The packages are preloaded into the script global environment before it is launched.
+  The packages are preloaded into the script global environment before the script is launched.
 
 ### runner.run( script, [payload], callback( err, ret ) )
 
@@ -128,4 +128,3 @@ Future work:
 - cap the total number of worker processes
 - log a comment if worker is killed (ie, not asked to stop)
 - emit `fork`, `exit`, `error` and `trace` events
-- option `eval` to parse the script name as a function script, and run the function
