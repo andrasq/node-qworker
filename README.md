@@ -83,6 +83,8 @@ Options:
 - `require` - hash of name-path pairs of packages to load for the script.
   The packages are preloaded into the script global environment before it is launched.
   This option overrides the qworker option of the same name.
+- `eval` - javascript source of script to run, parsed with `eval()`.  If this option
+  is present, the `script` argument is used for categorization and scheduling only.
 
 Some options take effect in newly created worker processes, but the script may be run
 by an existing worker process.  For predictability always use the same options for the
@@ -106,7 +108,7 @@ Options:
 
 ## ChangeLog
 
-- 0.8.0 - `require` job option
+- 0.8.0 - `require` job option, `eval` job option
 - 0.7.1 - replace processExists with processNotExists
 - 0.7.0 - `close` method, replace MvCache with mv hash functions, document `exitTimeout`
 - 0.6.1 - `idleTimeout` option, use own MvCache, clean up after killed processes

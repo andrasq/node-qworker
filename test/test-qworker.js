@@ -249,6 +249,31 @@ module.exports = {
             })
         },
 
+        'runWithOptions eval should eval script': function(t) {
+            var runner2 = qworker({ scriptDir: __dirname + '/scripts', maxUseCount: 1 });
+            var src1 = 'function(payload, cb) { cb(null, { retval: 1234 }) }';
+            var src2 = 'function(payload, cb) { cb(null, { retval: 2345 }) }';
+            runner2.runWithOptions('ping', { eval: src1 }, function(err, ret1) {
+                t.ifError(err);
+                t.equal(ret1.retval, 1234);
+                runner2.runWithOptions('ping', { eval: src2 }, function(err, ret2) {
+                    t.ifError(err);
+                    t.equal(ret2.retval, 2345);
+                    t.done();
+                })
+            })
+        },
+
+        'runWithOptions eval should return parse error': function(t) {
+            var runner2 = qworker({ scriptDir: __dirname + '/scripts', maxUseCount: 1 });
+            runner2.runWithOptions('ping', { eval: 'function(){}}' }, function(err, ret) {
+                t.ok(err);
+                t.contains(err.message, 'eval error');
+                t.contains(err.message, 'Unexpected token');
+                t.done();
+            })
+        },
+
         'close should terminate all worker processes': function(t) {
             var runner2 = qworker({
                 scriptDir: __dirname + '/scripts',

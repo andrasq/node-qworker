@@ -43,6 +43,7 @@ function QwWorker( ) {
 
 // worker:
 // worker process is passed the script and payload
+// worker process waits for jobs and runs them
 function runScripts() {
     // tell parent that ready to receive jobs
     this.sendTo(process, { pid: process.pid, qwType: 'ready' });
@@ -52,7 +53,7 @@ function runScripts() {
         clearTimeout(this.idleTimer);
         switch (parentMessage && parentMessage.pid === process.pid && parentMessage.qwType) {
         case 'job':             // run the script on payload in "job"
-            runScriptJob(parentMessage.job, function(err, result) {
+            self.runScriptJob(parentMessage.job, function(err, result) {
                 if (err && err instanceof Error) err = errorToObject(err);
                 self.sendTo(process, { pid: process.pid, qwType: 'done', err: err, result: result });
                 if (parentMessage.job.idleTimeout > 0) self.idleTimer = setTimeout(exitProcess, +parentMessage.job.idleTimeout);
@@ -95,13 +96,21 @@ function runScriptJob( job, callback ) {
             }
         }
 
-        var runner = require(job.script);
+        var runner;
+        if (job.eval) {
+            try { eval("runner = " + job.eval) }
+            catch (e) { throw new Error("qworker eval error: " + e.message) }
+        } else {
+            var runner = require(job.script);
+        }
         runner(job.payload, callback);
     }
     catch (err) {
         callback(err);
     }
 }
+
+QwWorker.prototype = toStruct(QwWorker.prototype);
 
 // quick-and-easy multi-value hash (non-numeric values only)
 // Store holds lists of values by key, empty lists are deleted.
@@ -191,9 +200,10 @@ QwRunner.prototype.runWithOptions = function runWithOptions( script, options, pa
     var idleTimeout = options.idleTimeout || this.idleTimeout;
     var lockfile = options.lockfile;
     var requirePackages = options.require || this.require;
+    var evalSource = options.eval;
     var job = {
         script: script, payload: payload, timeout: jobTimeout, niceLevel: niceLevel,
-        idleTimeout: idleTimeout, lockfile: lockfile, require: requirePackages, };
+        idleTimeout: idleTimeout, lockfile: lockfile, require: requirePackages, eval: evalSource, };
     this._workQueue.push(job, callback);
 }
 
