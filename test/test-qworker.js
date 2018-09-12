@@ -249,7 +249,7 @@ module.exports = {
             })
         },
 
-        'runWithOptions eval should eval script': function(t) {
+        'eval should eval script': function(t) {
             var runner2 = qworker({ scriptDir: __dirname + '/scripts', maxUseCount: 1 });
             var src1 = 'function(payload, cb) { cb(null, { retval: 1234 }) }';
             var src2 = 'function(payload, cb) { cb(null, { retval: 2345 }) }';
@@ -264,13 +264,31 @@ module.exports = {
             })
         },
 
-        'runWithOptions eval should return parse error': function(t) {
+        'eval should return parse error': function(t) {
             var runner2 = qworker({ scriptDir: __dirname + '/scripts', maxUseCount: 1 });
             runner2.runWithOptions('ping', { eval: 'function(){}}' }, function(err, ret) {
                 t.ok(err);
                 t.contains(err.message, 'eval error');
                 t.contains(err.message, 'Unexpected token');
                 t.done();
+            })
+        },
+
+        'eval should use script-named worker': function(t) {
+            var runner2 = qworker({ scriptDir: __dirname + '/scripts', maxUseCount: 10 });
+            var name1 = __dirname + '/scripts/pid';
+            var name2 = __dirname + '/scripts/ping';
+            runner2.runWithOptions('pid', {}, function(err, ret1) {
+                runner2.runWithOptions('ping', {}, function(err, ret2) {
+                    t.equal(runner2._workerPool[name1][0]._useCount, 1);
+                    t.equal(runner2._workerPool[name2][0]._useCount, 1);
+                    runner2.runWithOptions('pid', { eval: 'function(data, cb){ return cb(null, { mypid: process.pid }) }' }, function(err, ret) {
+                        t.ifError(err);
+                        t.equal(runner2._workerPool[name1][0]._useCount, 2);
+                        t.equal(runner2._workerPool[name2][0]._useCount, 1);
+                        t.done();
+                    })
+                })
             })
         },
 

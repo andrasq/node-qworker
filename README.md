@@ -84,7 +84,8 @@ Options:
   The packages are preloaded into the script global environment before it is launched.
   This option overrides the qworker option of the same name.
 - `eval` - javascript source of script to run, parsed with `eval()`.  If this option
-  is present, the `script` argument is used for categorization and scheduling only.
+  is present, the `script` argument is used for categorization and scheduling only;
+  in particular, the script will be run on a worker associated with `script`.
 
 Some options take effect in newly created worker processes, but the script may be run
 by an existing worker process.  For predictability always use the same options for the
