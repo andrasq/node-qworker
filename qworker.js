@@ -11,9 +11,6 @@
 
 'use strict';
 
-var fs = require('fs');
-var qinvoke = require('qinvoke');
-
 
 if (process.env.NODE_QWORKER) {
     // qworker mode, start the worker, listen for work
@@ -24,6 +21,9 @@ if (process.env.NODE_QWORKER) {
 }
 else {
     // controller mode, create worker and tell it to run the script
+
+    var fs = require('fs');
+    var qinvoke = require('qinvoke');
 
     var child_process = require('child_process');
     var qhash = require('qhash');
@@ -53,7 +53,7 @@ function runScripts() {
         switch (parentMessage && parentMessage.pid === process.pid && parentMessage.qwType) {
         case 'job':             // run the script on payload in "job"
             runScriptJob(parentMessage.job, function(err, result) {
-                if (err && err instanceof Error) err = qinvoke.errorToObject(err);
+                if (err && err instanceof Error) err = errorToObject(err);
                 self.sendTo(process, { pid: process.pid, qwType: 'done', err: err, result: result });
                 if (parentMessage.job.idleTimeout > 0) self.idleTimer = setTimeout(exitProcess, +parentMessage.job.idleTimeout);
             })
@@ -63,6 +63,14 @@ function runScripts() {
             break;
         }
     })
+
+    // copied here from qinvoke.errorToObject:
+    function errorToObject( err ) {
+        var obj = {};
+        var names = Object.getOwnPropertyNames(err);
+        for (var i=0; i<names.length; i++) obj[names[i]] = err[names[i]];
+        return obj;
+    }
 
     function exitProcess() {
         // force exit if disconnect doesnt do the job
