@@ -7,7 +7,5 @@ node_js:
   - 10
 after_success:
   - if [ `node -p 'process.version.slice(0, 3)'` != "v8." ]; then exit; fi
-  #- echo "AR: COVERAGE" ; free ; uname -a
-  - /bin/echo "AR: COVERAGE" && free && uname -a
   - npm install -g nyc@8.4.0 codecov
   - nyc --reporter lcov npm test && codecov
