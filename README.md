@@ -48,7 +48,7 @@ Options:
 - `exitTimeout` - how many milliseconds to allow for a worker to to exit when told to stop.
   Default 2000 ms.
 - `require` - hash of name-path pairs of packages to load for the script.
-  The packages are preloaded into the script global environment before the script is launched.
+  The packages are preloaded into the global environment before the script is launched.
 
 ### runner.run( script, [payload], callback( err, ret ) )
 
