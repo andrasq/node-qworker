@@ -333,7 +333,9 @@ QwRunner.prototype.createWorkerProcess = function createWorkerProcess( script, j
         // listen for and harvest idle workers
         worker.on('message', function(workerMessage) {
             if (workerMessage && workerMessage.qwType === 'idleTimeout') {
-                if (!worker._reserved) self.endWorkerProcess(worker, noop, true);
+                // TODO: if workers allow concurrent jobs, only end worker once all jobs done
+                // if (!worker._reserved) ...
+                self.endWorkerProcess(worker, noop, true);
             }
         })
 
