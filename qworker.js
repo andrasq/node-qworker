@@ -39,6 +39,7 @@ function QwWorker( ) {
     this.runScriptJob = runScriptJob;
     this.sendTo = sendTo;
     this.idleTimer = null;
+    this.runningCount = 0;
 }
 
 // worker:
@@ -53,10 +54,16 @@ function runScripts() {
         clearTimeout(this.idleTimer);
         switch (parentMessage && parentMessage.pid === process.pid && parentMessage.qwType) {
         case 'job':             // run the script on payload in "job"
+            self.runningCount += 1;
             self.runScriptJob(parentMessage.job, function(err, result) {
+                self.runningCount -= 1;
                 if (err && err instanceof Error) err = errorToObject(err);
                 self.sendTo(process, { pid: process.pid, qwType: 'done', err: err, result: result });
-                if (parentMessage.job.idleTimeout > 0) self.idleTimer = setTimeout(exitProcess, +parentMessage.job.idleTimeout);
+                if (parentMessage.job.idleTimeout > 0 && self.runningCount <= 0) {
+                    // on idle, tell parent to stop us
+                    // The indirection via the parent is used to avoid use-vs-exit race conditions.
+                    self.idleTimer = setTimeout(notifyIdle, +parentMessage.job.idleTimeout);
+                }
             })
             break;
         case 'stop':            // close IPC socket and exit naturally
@@ -79,6 +86,10 @@ function runScripts() {
         setTimeout(process.exit, 2000).unref();
         // disconnect, but suppress "already disconnected" errors
         try { process.disconnect() } catch (e) { }
+    }
+
+    function notifyIdle() {
+        self.sendTo(process, { pid: process.pid, qwType: 'idleTimeout' });
     }
 }
 
@@ -219,6 +230,9 @@ QwRunner.prototype.jobRunner = function jobRunner( job, cb ) {
         return cb(worker);
     }
 
+    // set _reserved to not let an idleTimeout kill the process before it starts the job
+    worker._reserved = true;
+
     // when worker is ready to receive messages, send it the job
     // and wait for the job to finish.  The worker is reusable once the job is done.
     function launchJob( err ) {
@@ -262,6 +276,8 @@ QwRunner.prototype.jobRunner = function jobRunner( job, cb ) {
         var returnOnDone;
         worker.on('message', returnOnDone = function(workerMessage) {
             if (workerMessage && workerMessage.qwType === 'done') {
+                worker._runningCount -= 1;
+                if (worker._runningCount <= 0) worker._reserved = false;
                 // processing finished, returns error or result
                 // TODO: allow per-worker job concurrency > 1
                 worker.removeListener('exit', returnOnExit);
@@ -278,6 +294,7 @@ QwRunner.prototype.jobRunner = function jobRunner( job, cb ) {
         })
 
         // once worker is all set up, send it the job
+        worker._runningCount += 1;
         self.sendTo(worker, { pid: worker.pid, qwType: 'job', job: job });
     }
 }
@@ -291,7 +308,7 @@ QwRunner.prototype.createWorkerProcess = function createWorkerProcess( script, j
         var worker = this.mvRemove(this._workerPool, script, 0);
     } while (worker && this.processNotExists(worker.pid));
     if (worker) {
-        // return before callback, to simplify unit tests
+        // delay callback to after return, to simplify unit tests
         process.nextTick(function(){ callback(null, worker) });
         return worker;
     }
@@ -302,6 +319,7 @@ QwRunner.prototype.createWorkerProcess = function createWorkerProcess( script, j
         worker._qworkerId = process.env.NODE_QWORKER;
         worker._useCount = 0;
         worker._script = script;
+        worker._runningCount = 0;
         this._workers.push(worker);
 
         // if process dies or is killed, clean up
@@ -311,6 +329,13 @@ QwRunner.prototype.createWorkerProcess = function createWorkerProcess( script, j
             self.endWorkerProcess(worker, noop);
             if (!gotStartedMessage) callback(new Error('process exited with ' + code + ' / ' + signal));
         });
+
+        // listen for and harvest idle workers
+        worker.on('message', function(workerMessage) {
+            if (workerMessage && workerMessage.qwType === 'idleTimeout') {
+                if (!worker._reserved) self.endWorkerProcess(worker, noop, true);
+            }
+        })
 
         // call callback once worker is running and processing messages
         worker.once('message', function onMessage(message) {
@@ -358,11 +383,10 @@ QwRunner.prototype.endWorkerProcess = function endWorkerProcess( worker, callbac
         var self = this;
 
         this.sendTo(worker, { pid: worker.pid, qwType: 'stop' });
-        exitTimer = setTimeout(function(){
+        var exitTimer = setTimeout(function(){
             self.killWorkerProcess(worker);
         }, this.exitTimeout).unref();
 
-        var exitTimer;
         worker.once('exit', function(exitcode) {
             clearTimeout(exitTimer);
             callback(null, worker);

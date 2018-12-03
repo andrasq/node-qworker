@@ -562,7 +562,7 @@ module.exports = {
                 setTimeout(function() {
                     t.ok(runner2.processNotExists(ret));
                     t.done();
-                }, 20);
+                }, 50);
             })
         },
 

@@ -48,7 +48,7 @@ Options:
 - `exitTimeout` - how many milliseconds to allow for a worker to to exit when told to stop.
   Default 2000 ms.
 - `require` - hash of name-path pairs of packages to load for the script.
-  The packages are preloaded into the global environment before the script is launched.
+  The packages are preloaded into the script global environment before the script is launched.
 
 ### runner.run( script, [payload], callback( err, ret ) )
 
@@ -109,6 +109,7 @@ Options:
 
 ## ChangeLog
 
+- 0.8.2 - always have parent dismiss the worker, to avoid race conditions
 - 0.8.1 - only `sendTo` if connected
 - 0.8.0 - `require` job option, `eval` script option
 - 0.7.1 - replace processExists with processNotExists
