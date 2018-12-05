@@ -40,6 +40,8 @@ function QwWorker( ) {
     this.sendTo = sendTo;
     this.idleTimer = null;
     this.runningCount = 0;
+
+    this._exitAsap = false;
 }
 
 // worker:
@@ -59,10 +61,11 @@ function runScripts() {
                 self.runningCount -= 1;
                 if (err && err instanceof Error) err = errorToObject(err);
                 self.sendTo(process, { pid: process.pid, qwType: 'done', err: err, result: result });
-                if (parentMessage.job.idleTimeout > 0 && self.runningCount <= 0) {
+                if ((parentMessage.job.idleTimeout > 0 || self._exitAsap) && self.runningCount <= 0) {
                     // on idle, tell parent to stop us
                     // The indirection via the parent is used to avoid use-vs-exit race conditions.
-                    self.idleTimer = setTimeout(notifyIdle, +parentMessage.job.idleTimeout);
+                    var idleTimeout = self._exitAsap && 1 || parentMessage.job.idleTimeout;
+                    self.idleTimer = setTimeout(notifyIdle, +idleTimeout).unref();
                 }
             })
             break;
@@ -71,6 +74,18 @@ function runScripts() {
             break;
         }
     })
+    process.on('disconnect', exitOnDisconnect);
+
+    function exitOnDisconnect() {
+        // exit now, or exit 1 ms after the last job ends, but do not wait longer than 30 sec
+        // Note that a disconnected parent cannot receive the job error or results.
+        // The 30 sec timeout is to guard against jobs that never call their callback.
+        if (self.runningCount <= 0) exitProcess();
+        else {
+            self._exitAsap = true;
+            setTimeout(exitProcess, 30000).unref();
+        }
+    }
 
     // copied here from qinvoke.errorToObject:
     function errorToObject( err ) {
@@ -81,15 +96,21 @@ function runScripts() {
     }
 
     function exitProcess() {
-        // force exit if disconnect doesnt do the job
+        // paranoia: if the graceful disconnect-exit below does not take effect in 2 sec, brute-force exit
         // TODO: make this stopTimeout configurable
         setTimeout(process.exit, 2000).unref();
-        // disconnect, but suppress "already disconnected" errors
-        try { process.disconnect() } catch (e) { }
+
+        // disconnect, or exit now on "already disconnected" errors
+        // If the parent is itself exiting and does not process our 'disconnect',
+        // The 'disconnect' listener that is installed will call back here and
+        // our second disconnect() will throw, and we will then exit immediately.
+        try { process.disconnect() } catch (e) { process.exit() }
     }
 
     function notifyIdle() {
-        self.sendTo(process, { pid: process.pid, qwType: 'idleTimeout' });
+        // ask parent to dismiss us, or exit if parent not reachable
+        // (parent may choose to send a new job instead of disconnecting)
+        self.sendTo(process, { pid: process.pid, qwType: 'idleTimeout' }) || exitProcess();
     }
 }
 
@@ -151,10 +172,7 @@ function QwRunner( options ) {
     this.idleTimeout = options.idleTimeout || 0;                // worker to exit after ms with no work to do
     this.require = options.require || null;                     // packages to preload into global[]
 
-    function jobRunner( job, cb ) {
-        self.jobRunner(job, cb);
-    }
-    this._workQueue = quickq(jobRunner, this.maxWorkers);
+    this._workQueue = quickq(function(job, cb) { self.jobRunner(job, cb) }, this.maxWorkers);
     this._workers = new Array();
     this._workerPool = {};
     this._nextWorkerId = 1;
