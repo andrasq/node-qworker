@@ -109,6 +109,7 @@ Options:
 
 ## ChangeLog
 
+- 0.8.3 - fix idle exit when parent exits
 - 0.8.2 - always have parent dismiss the worker, to avoid race conditions
 - 0.8.1 - only `sendTo` if connected
 - 0.8.0 - `require` job option, `eval` script option

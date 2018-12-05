@@ -51,7 +51,7 @@ function runScripts() {
 
     var self = this;
     process.on('message', function(parentMessage) {
-        clearTimeout(this.idleTimer);
+        clearTimeout(self.idleTimer);
         switch (parentMessage && parentMessage.pid === process.pid && parentMessage.qwType) {
         case 'job':             // run the script on payload in "job"
             self.runningCount += 1;
