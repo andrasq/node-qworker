@@ -109,6 +109,8 @@ Options:
 
 ## ChangeLog
 
+- 0.9.0 - factor out the filesystem advisory locks into their own package `qfslock`,
+          remove qhash as a dependency
 - 0.8.3 - fix disconnect handling, fix clear idle timeout on new job
 - 0.8.2 - always have parent dismiss the worker, to avoid race conditions
 - 0.8.1 - only `sendTo` if connected

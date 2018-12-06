@@ -26,8 +26,8 @@ else {
     var qinvoke = require('qinvoke');
 
     var child_process = require('child_process');
-    var qhash = require('qhash');
     var quickq = require('quickq');
+    var qfslock = require('qfslock');
 
     module.exports = QwRunner;
 }
@@ -159,8 +159,9 @@ function mvRemove( store, key, ix ) {
 }
 
 function QwRunner( options ) {
-    options = options || {};
     if (! (this instanceof QwRunner)) return new QwRunner(options);
+
+    options = options || {};
     var self = this;
 
     this.maxWorkers = options.maxWorkers || 2;                  // num script runners to allow in parallel
@@ -180,15 +181,22 @@ function QwRunner( options ) {
     if (this.scriptDir[0] !== '/') this.scriptDir = process.cwd() + '/' + this.scriptDir;
 
     this.defaults = function defaults( options ) {
-        return new QwRunner(qhash.merge(this._options, options));
+        return new QwRunner(mergeObjects({}, this._options, options));
     };
 
     // save a copy of the options we got
     // assign some objects directly, not a deep copy
-    this._options = qhash.merge({ _workQueue: null }, options);
-    this._options._workQueue = self._workQueue;
+    this._options = mergeObjects({}, options, { _workQueue: self._workQueue });
 
     return this;
+
+    function mergeObjects( target, /* VARARGS */ ) {
+        for (var i=1; i<arguments.length; i++) {
+            var obj = arguments[i];
+            for (var k in obj) target[k] = obj[k];
+        }
+        return target;
+    }
 }
 
 QwRunner.prototype.close = function close( options ) {
@@ -426,48 +434,18 @@ QwRunner.prototype.killWorkerProcess = function killWorkerProcess( worker, optio
 
 // verify that that the process `pid` is not running
 QwRunner.prototype.processNotExists = function processNotExists( pid ) {
-    if (!(pid > 0)) return true;
-    try { process.kill(+pid, 0); return false }         // no error: exists and ours
-    catch (err) { return err.code === 'ESRCH' }         // EPERM: exists not ours, ESRCH: not exists
+    return qfslock.processNotExists(pid);
 }
 
 // set a job mutex in the filesystem (file containing the lock owner pid)
 // If the mutex exists but the that process is gone, override the old lock.
 QwRunner.prototype.setLock = function setLock( lockfile, ownerPid ) {
-    var fd, self = this;
-
-    try {
-        fd = fs.openSync(lockfile, 'wx');
-        fs.closeSync(fd);
-        fs.writeFileSync(lockfile, String(ownerPid));
-    }
-    catch (err) {
-        if (err.code === 'EEXIST') {
-            breakAbandonedLock(lockfile);
-            setLock(lockfile, ownerPid);
-        }
-        else throw err;
-    }
-
-    // break the lock if is abandoned, or throw if cannot break
-    function breakAbandonedLock( lockfile ) {
-        var pid = fs.readFileSync(lockfile);
-        if (self.processNotExists(pid)) fs.unlinkSync(lockfile);
-        else throw new Error(lockfile + ': cannot break lock, process ' + pid + ' exists');
-    }
+    return qfslock.setLock(lockfile, ownerPid);
 }
 
 // clear a job mutex.  The job must not exist or must be ours (contain our lock owner pid).
 QwRunner.prototype.clearLock = function clearLock( lockfile, ownerPid ) {
-    try {
-        var pid = String(fs.readFileSync(lockfile));
-        if (pid === String(ownerPid) || this.processNotExists(pid)) fs.unlinkSync(lockfile);
-        else throw new Error('not our lock');
-    }
-    catch (err) {
-        if (err.code === 'ENOENT') return;
-        throw err;
-    }
+    return qfslock.clearLock(lockfile, ownerPid);
 }
 
 // expose on prototype to tests
