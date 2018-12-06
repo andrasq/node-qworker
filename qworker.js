@@ -190,7 +190,7 @@ function QwRunner( options ) {
 
     return this;
 
-    function mergeObjects( target, /* VARARGS */ ) {
+    function mergeObjects( target /*, VARARGS */ ) {
         for (var i=1; i<arguments.length; i++) {
             var obj = arguments[i];
             for (var k in obj) target[k] = obj[k];
