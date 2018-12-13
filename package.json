@@ -10,7 +10,7 @@
   },
 
   "author": "andrasq",
-  "repository": "git://github.com/andrasq/node-qworker",
+  "repository": { "type": "git", "url": "git://github.com/andrasq/node-qworker" },
   "readme": "see README.md in the repo",
 
   "dependencies": {
