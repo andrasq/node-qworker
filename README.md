@@ -3,6 +3,7 @@ qworker
 
 [![Build Status](https://api.travis-ci.org/andrasq/node-qworker.svg?branch=master)](https://travis-ci.org/andrasq/node-qworker?branch=master)
 [![Coverage Status](https://codecov.io/github/andrasq/node-qworker/coverage.svg?branch=master)](https://codecov.io/github/andrasq/node-qworker?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/andrasq/node-qworker/badge.svg?branch=master)](https://coveralls.io/github/andrasq/node-qworker?branch=master)
 
 
 Worker processes to run nodejs scripts.  Each script is run in a separate child process.
