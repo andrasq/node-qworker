@@ -381,6 +381,41 @@ module.exports = {
                 }, 100);
             })
         },
+
+        'disconnected worker should exit once job finishes': function(t) {
+            var runner2 = qworker({ idleTimeout: 10000, scriptDir: __dirname + '/scripts' });
+            var worker, pid;
+
+            t.expect(4);
+
+            // create the worker process, start a job that will take 1500 ms
+            // when run by `nyc` code coverage, it takes 500 ms to create a process
+            runner2.run('sleep', { ms: 1500 }, function(err, ret) {
+                t.ok(err && /worker died/.test(err.message));
+                t.ok(runner2.processNotExists(pid));
+            })
+
+            // disconnect 1000 ms later, giving the script plenty of time to start
+            setTimeout(function() {
+                worker = runner2._workers[0];
+                pid = worker.pid;
+                worker.disconnect();
+                var disconnectTime = Date.now();
+                worker.on('exit', function() {
+                    // it takes a while for the process to exit after disconnect under `nyc`,
+                    // but should be well under the idle timeout
+                    t.ok(Date.now() < disconnectTime + 5000);
+                    t.done();
+                })
+            }, 1000)
+
+            // check that the job continued to run after the disconnect
+            setTimeout(function() {
+                // disconnected job not finished yet, but still running
+                var worker = runner2._workers[0];
+                t.ok(!runner2.processNotExists(pid));
+            }, 1450);
+        },
     },
 
     'helpers': {
