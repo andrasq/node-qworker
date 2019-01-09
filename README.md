@@ -2,7 +2,6 @@ qworker
 =======
 
 [![Build Status](https://api.travis-ci.org/andrasq/node-qworker.svg?branch=master)](https://travis-ci.org/andrasq/node-qworker?branch=master)
-[![Coverage Status](https://codecov.io/github/andrasq/node-qworker/coverage.svg?branch=master)](https://codecov.io/github/andrasq/node-qworker?branch=master)
 [![Coverage Status](https://coveralls.io/repos/github/andrasq/node-qworker/badge.svg?branch=master)](https://coveralls.io/github/andrasq/node-qworker?branch=master)
 
 
@@ -111,7 +110,7 @@ Options:
 ## ChangeLog
 
 - 0.9.0 - factor out the filesystem advisory locks into their own package `qfslock`,
-          remove qhash as a dependency
+          remove qhash as a dependency, add license file
 - 0.8.3 - fix disconnect handling, fix clear idle timeout on new job
 - 0.8.2 - always have parent dismiss the worker, to avoid race conditions
 - 0.8.1 - only `sendTo` if connected
