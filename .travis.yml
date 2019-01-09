@@ -3,8 +3,8 @@ node_js:
   - 0.10
   - 6
   - 8
-  - 9
   - 10
+  - 11
 before_installs:
   - npm install -g qnit
 after_success:
