@@ -109,6 +109,7 @@ Options:
 
 ## ChangeLog
 
+- 0.9.1 - upgrade quickq for fixes
 - 0.9.0 - factor out the filesystem advisory locks into their own package `qfslock`,
           remove qhash as a dependency, add license file
 - 0.8.3 - fix disconnect handling, fix clear idle timeout on new job
