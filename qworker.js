@@ -460,12 +460,12 @@ function sendTo( proc, message ) {
         // NOTE: node-v9 and node-v10 log an ERR_IPC_CHANNEL_CLOSED message
         // to the console, because the message is sent on nextTick
         // Test `worker.connected` to not send if connection is closed.
-        if (proc.connected) proc.send(message); else return false;
-        return true;
+        // NOTE: newer node can throw uncaught EPIPE errors without a callback,
+        // but node-v0.x do not support a callback.  Pad with a null handle to make old node ignore it.
+        if (proc.connected) proc.send(message, null, function(err) {});
     }
     catch (err) {
         // suppress 'channel closed' errors
-        return false;
     }
 }
 
